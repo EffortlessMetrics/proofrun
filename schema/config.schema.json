@@ -1,0 +1,97 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://proofrun.dev/schema/config.schema.json",
+  "title": "proofrun config",
+  "type": "object",
+  "required": ["version", "profiles", "surface", "rule", "unknown"],
+  "properties": {
+    "version": { "type": "integer", "const": 1 },
+    "defaults": {
+      "type": "object",
+      "properties": {
+        "output_dir": { "type": "string", "default": ".proofrun" }
+      },
+      "additionalProperties": true
+    },
+    "profiles": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "properties": {
+          "always": {
+            "type": "array",
+            "items": { "type": "string" },
+            "default": []
+          }
+        },
+        "additionalProperties": true
+      }
+    },
+    "surface": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "covers", "cost", "run"],
+        "properties": {
+          "id": { "type": "string" },
+          "covers": {
+            "type": "array",
+            "items": { "type": "string" },
+            "minItems": 1
+          },
+          "cost": { "type": "number", "minimum": 0 },
+          "run": {
+            "type": "array",
+            "items": { "type": "string" },
+            "minItems": 1
+          }
+        },
+        "additionalProperties": true
+      }
+    },
+    "rule": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["when", "emit"],
+        "properties": {
+          "when": {
+            "type": "object",
+            "required": ["paths"],
+            "properties": {
+              "paths": {
+                "type": "array",
+                "items": { "type": "string" },
+                "minItems": 1
+              }
+            },
+            "additionalProperties": true
+          },
+          "emit": {
+            "type": "array",
+            "items": { "type": "string" },
+            "minItems": 1
+          }
+        },
+        "additionalProperties": true
+      }
+    },
+    "unknown": {
+      "type": "object",
+      "required": ["fallback", "mode"],
+      "properties": {
+        "fallback": {
+          "type": "array",
+          "items": { "type": "string" },
+          "default": []
+        },
+        "mode": {
+          "type": "string",
+          "enum": ["fail-closed", "warn-open"]
+        }
+      },
+      "additionalProperties": true
+    }
+  },
+  "additionalProperties": true
+}

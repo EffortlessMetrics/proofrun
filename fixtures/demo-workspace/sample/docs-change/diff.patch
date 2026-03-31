@@ -1,0 +1,10 @@
+diff --git a/docs/guide.md b/docs/guide.md
+index 18dc5cb..f91e1c7 100644
+--- a/docs/guide.md
++++ b/docs/guide.md
+@@ -1,3 +1,5 @@
+ # Demo workspace
+ 
+ This fixture exists to exercise proofrun planning behavior.
++
++A docs-only commit should select docs plus smoke.

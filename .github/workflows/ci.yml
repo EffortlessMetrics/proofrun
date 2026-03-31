@@ -1,0 +1,53 @@
+name: ci
+
+on:
+  pull_request:
+  push:
+    branches: ["main"]
+
+jobs:
+  reference:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Reference tests
+        run: python3 -m unittest discover -s tests -p 'test_*.py'
+
+      - name: Doctor
+        run: python3 reference/proofrun_ref.py doctor
+
+      - name: Generate plan for fixture range
+        run: |
+          BASE=$(python3 - <<'PY'
+          import json
+          from pathlib import Path
+          commits = json.loads(Path("fixtures/demo-workspace/sample/commits.json").read_text())
+          print(commits["initial"])
+          PY
+          )
+          HEAD=$(python3 - <<'PY'
+          import json
+          from pathlib import Path
+          commits = json.loads(Path("fixtures/demo-workspace/sample/commits.json").read_text())
+          print(commits["core_change"])
+          PY
+          )
+          python3 reference/proofrun_ref.py plan --repo fixtures/demo-workspace/repo --base "$BASE" --head "$HEAD" --profile ci
+
+      - name: Dry-run receipt
+        run: python3 reference/proofrun_ref.py run --plan fixtures/demo-workspace/repo/.proofrun/plan.json --dry-run
+
+  rust-target:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Placeholder
+        run: |
+          echo "Install Rust and port the reference implementation into crates/proofrun."

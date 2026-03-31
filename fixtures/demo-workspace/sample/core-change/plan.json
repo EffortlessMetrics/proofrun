@@ -1,0 +1,139 @@
+{
+  "artifacts": {
+    "commands_shell": ".proofrun/commands.sh",
+    "diff_patch": ".proofrun/diff.patch",
+    "github_actions": ".proofrun/github-actions.yml",
+    "output_dir": ".proofrun",
+    "plan_json": ".proofrun/plan.json",
+    "plan_markdown": ".proofrun/plan.md"
+  },
+  "base": "8a98e3f3f44b8fcb4ae8f853911b4c5bb1d26717",
+  "changed_paths": [
+    {
+      "owner": "core",
+      "path": "crates/core/src/lib.rs",
+      "status": "M"
+    }
+  ],
+  "config_digest": "859f3ea0c010418cabf3ca3b1c07cb6bbaa57398515df52a54b017d2a3bbc8a1",
+  "created_at": "2026-03-31T12:02:55Z",
+  "diagnostics": [],
+  "head": "ae21fea001cb9fc82101f7368ec5cfb4a6fa46eb",
+  "merge_base": "8a98e3f3f44b8fcb4ae8f853911b4c5bb1d26717",
+  "obligations": [
+    {
+      "id": "pkg:core:mutation-diff",
+      "reasons": [
+        {
+          "path": "crates/core/src/lib.rs",
+          "pattern": "crates/*/src/**/*.rs",
+          "rule": "rule:1",
+          "source": "rule"
+        }
+      ]
+    },
+    {
+      "id": "pkg:core:tests",
+      "reasons": [
+        {
+          "path": "crates/core/src/lib.rs",
+          "pattern": "crates/*/src/**/*.rs",
+          "rule": "rule:1",
+          "source": "rule"
+        }
+      ]
+    },
+    {
+      "id": "workspace:smoke",
+      "reasons": [
+        {
+          "path": null,
+          "pattern": null,
+          "rule": "ci",
+          "source": "profile"
+        }
+      ]
+    }
+  ],
+  "omitted_surfaces": [
+    {
+      "id": "workspace.all-tests",
+      "reason": "not selected by optimal weighted cover"
+    }
+  ],
+  "plan_digest": "66c833f979ebd3f92cd7dcb1a350c67242fbbe614c55e5100487e9625167776c",
+  "profile": "ci",
+  "repo_root": "/mnt/data/proofrun/fixtures/demo-workspace/repo",
+  "selected_surfaces": [
+    {
+      "cost": 13.0,
+      "covers": [
+        "pkg:core:mutation-diff"
+      ],
+      "id": "mutation.diff[pkg=core]",
+      "run": [
+        "cargo",
+        "mutants",
+        "--in-diff",
+        "/mnt/data/proofrun/fixtures/demo-workspace/repo/.proofrun/diff.patch",
+        "--package",
+        "core"
+      ],
+      "template": "mutation.diff"
+    },
+    {
+      "cost": 3.0,
+      "covers": [
+        "pkg:core:tests"
+      ],
+      "id": "tests.pkg[pkg=core]",
+      "run": [
+        "cargo",
+        "nextest",
+        "run",
+        "--profile",
+        "ci",
+        "-E",
+        "package(core)"
+      ],
+      "template": "tests.pkg"
+    },
+    {
+      "cost": 2.0,
+      "covers": [
+        "workspace:smoke"
+      ],
+      "id": "workspace.smoke",
+      "run": [
+        "cargo",
+        "test",
+        "--workspace",
+        "--quiet"
+      ],
+      "template": "workspace.smoke"
+    }
+  ],
+  "version": "0.1.0-ref",
+  "workspace": {
+    "packages": [
+      {
+        "dependencies": [
+          "core"
+        ],
+        "dir": "crates/app",
+        "manifest": "crates/app/Cargo.toml",
+        "name": "app",
+        "reverse_dependencies": []
+      },
+      {
+        "dependencies": [],
+        "dir": "crates/core",
+        "manifest": "crates/core/Cargo.toml",
+        "name": "core",
+        "reverse_dependencies": [
+          "app"
+        ]
+      }
+    ]
+  }
+}

@@ -1,0 +1,62 @@
+version = 1
+
+[defaults]
+output_dir = ".proofrun"
+
+[profiles.local]
+always = ["workspace:smoke"]
+
+[profiles.ci]
+always = ["workspace:smoke"]
+
+[[surface]]
+id = "tests.pkg"
+covers = ["pkg:{pkg}:tests"]
+cost = 3
+run = ["cargo", "nextest", "run", "--profile", "{profile}", "-E", "package({pkg})"]
+
+[[surface]]
+id = "tests.rdeps"
+covers = ["pkg:{pkg}:rdeps"]
+cost = 8
+run = ["cargo", "nextest", "run", "--profile", "{profile}", "-E", "rdeps({pkg})"]
+
+[[surface]]
+id = "workspace.all-tests"
+covers = ["pkg:*:tests"]
+cost = 10
+run = ["cargo", "nextest", "run", "--profile", "{profile}", "--workspace"]
+
+[[surface]]
+id = "mutation.diff"
+covers = ["pkg:{pkg}:mutation-diff"]
+cost = 13
+run = ["cargo", "mutants", "--in-diff", "{artifacts.diff_patch}", "--package", "{pkg}"]
+
+[[surface]]
+id = "workspace.docs"
+covers = ["workspace:docs"]
+cost = 4
+run = ["cargo", "doc", "--workspace", "--no-deps"]
+
+[[surface]]
+id = "workspace.smoke"
+covers = ["workspace:smoke"]
+cost = 2
+run = ["cargo", "test", "--workspace", "--quiet"]
+
+[[rule]]
+when.paths = ["crates/*/src/**/*.rs", "crates/*/tests/**/*.rs"]
+emit = ["pkg:{owner}:tests", "pkg:{owner}:mutation-diff"]
+
+[[rule]]
+when.paths = ["**/Cargo.toml", "Cargo.lock", ".cargo/**", "**/build.rs"]
+emit = ["pkg:{owner}:tests", "pkg:{owner}:rdeps", "workspace:smoke"]
+
+[[rule]]
+when.paths = ["docs/**", "book/**", "**/*.md"]
+emit = ["workspace:docs"]
+
+[unknown]
+fallback = ["workspace:smoke"]
+mode = "fail-closed"

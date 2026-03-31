@@ -1,0 +1,34 @@
+{
+  "executed_at": "2026-03-31T12:03:03Z",
+  "plan_digest": "76bbed98f4c351b58080b822b279043a1338c1170bc1060d68fa0c36a2c23e7f",
+  "status": "dry-run",
+  "steps": [
+    {
+      "argv": [
+        "cargo",
+        "doc",
+        "--workspace",
+        "--no-deps"
+      ],
+      "duration_ms": 0,
+      "exit_code": 0,
+      "id": "workspace.docs",
+      "stderr_path": ".proofrun/logs/01-workspace.docs.stderr.log",
+      "stdout_path": ".proofrun/logs/01-workspace.docs.stdout.log"
+    },
+    {
+      "argv": [
+        "cargo",
+        "test",
+        "--workspace",
+        "--quiet"
+      ],
+      "duration_ms": 0,
+      "exit_code": 0,
+      "id": "workspace.smoke",
+      "stderr_path": ".proofrun/logs/02-workspace.smoke.stderr.log",
+      "stdout_path": ".proofrun/logs/02-workspace.smoke.stdout.log"
+    }
+  ],
+  "version": "0.1.0-ref"
+}

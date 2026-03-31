@@ -1,0 +1,52 @@
+{
+  "executed_at": "2026-03-31T12:02:57Z",
+  "plan_digest": "66c833f979ebd3f92cd7dcb1a350c67242fbbe614c55e5100487e9625167776c",
+  "status": "dry-run",
+  "steps": [
+    {
+      "argv": [
+        "cargo",
+        "mutants",
+        "--in-diff",
+        "/mnt/data/proofrun/fixtures/demo-workspace/repo/.proofrun/diff.patch",
+        "--package",
+        "core"
+      ],
+      "duration_ms": 0,
+      "exit_code": 0,
+      "id": "mutation.diff[pkg=core]",
+      "stderr_path": ".proofrun/logs/01-mutation.diff[pkg=core].stderr.log",
+      "stdout_path": ".proofrun/logs/01-mutation.diff[pkg=core].stdout.log"
+    },
+    {
+      "argv": [
+        "cargo",
+        "nextest",
+        "run",
+        "--profile",
+        "ci",
+        "-E",
+        "package(core)"
+      ],
+      "duration_ms": 0,
+      "exit_code": 0,
+      "id": "tests.pkg[pkg=core]",
+      "stderr_path": ".proofrun/logs/02-tests.pkg[pkg=core].stderr.log",
+      "stdout_path": ".proofrun/logs/02-tests.pkg[pkg=core].stdout.log"
+    },
+    {
+      "argv": [
+        "cargo",
+        "test",
+        "--workspace",
+        "--quiet"
+      ],
+      "duration_ms": 0,
+      "exit_code": 0,
+      "id": "workspace.smoke",
+      "stderr_path": ".proofrun/logs/03-workspace.smoke.stderr.log",
+      "stdout_path": ".proofrun/logs/03-workspace.smoke.stdout.log"
+    }
+  ],
+  "version": "0.1.0-ref"
+}

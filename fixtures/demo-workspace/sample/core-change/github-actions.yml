@@ -1,0 +1,6 @@
+steps:
+  - name: Execute proof plan
+    run: |
+      cargo mutants --in-diff /mnt/data/proofrun/fixtures/demo-workspace/repo/.proofrun/diff.patch --package core
+      cargo nextest run --profile ci -E 'package(core)'
+      cargo test --workspace --quiet

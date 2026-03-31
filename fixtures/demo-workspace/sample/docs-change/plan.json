@@ -1,0 +1,104 @@
+{
+  "artifacts": {
+    "commands_shell": ".proofrun/commands.sh",
+    "diff_patch": ".proofrun/diff.patch",
+    "github_actions": ".proofrun/github-actions.yml",
+    "output_dir": ".proofrun",
+    "plan_json": ".proofrun/plan.json",
+    "plan_markdown": ".proofrun/plan.md"
+  },
+  "base": "ae21fea001cb9fc82101f7368ec5cfb4a6fa46eb",
+  "changed_paths": [
+    {
+      "owner": null,
+      "path": "docs/guide.md",
+      "status": "M"
+    }
+  ],
+  "config_digest": "859f3ea0c010418cabf3ca3b1c07cb6bbaa57398515df52a54b017d2a3bbc8a1",
+  "created_at": "2026-03-31T12:03:02Z",
+  "diagnostics": [],
+  "head": "1dcb4c3fd4154e4d7cd12bcff0101679f84fc1dd",
+  "merge_base": "ae21fea001cb9fc82101f7368ec5cfb4a6fa46eb",
+  "obligations": [
+    {
+      "id": "workspace:docs",
+      "reasons": [
+        {
+          "path": "docs/guide.md",
+          "pattern": "docs/**",
+          "rule": "rule:3",
+          "source": "rule"
+        }
+      ]
+    },
+    {
+      "id": "workspace:smoke",
+      "reasons": [
+        {
+          "path": null,
+          "pattern": null,
+          "rule": "ci",
+          "source": "profile"
+        }
+      ]
+    }
+  ],
+  "omitted_surfaces": [],
+  "plan_digest": "76bbed98f4c351b58080b822b279043a1338c1170bc1060d68fa0c36a2c23e7f",
+  "profile": "ci",
+  "repo_root": "/mnt/data/proofrun/fixtures/demo-workspace/repo",
+  "selected_surfaces": [
+    {
+      "cost": 4.0,
+      "covers": [
+        "workspace:docs"
+      ],
+      "id": "workspace.docs",
+      "run": [
+        "cargo",
+        "doc",
+        "--workspace",
+        "--no-deps"
+      ],
+      "template": "workspace.docs"
+    },
+    {
+      "cost": 2.0,
+      "covers": [
+        "workspace:smoke"
+      ],
+      "id": "workspace.smoke",
+      "run": [
+        "cargo",
+        "test",
+        "--workspace",
+        "--quiet"
+      ],
+      "template": "workspace.smoke"
+    }
+  ],
+  "version": "0.1.0-ref",
+  "workspace": {
+    "packages": [
+      {
+        "dependencies": [
+          "core"
+        ],
+        "dir": "crates/app",
+        "manifest": "crates/app/Cargo.toml",
+        "name": "app",
+        "reverse_dependencies": []
+      },
+      {
+        "dependencies": [],
+        "dir": "crates/core",
+        "manifest": "crates/core/Cargo.toml",
+        "name": "core",
+        "reverse_dependencies": [
+          "app"
+        ]
+      }
+    ]
+  }
+}
