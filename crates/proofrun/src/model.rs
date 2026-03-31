@@ -1,4 +1,3 @@
-use camino::Utf8PathBuf;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -48,6 +47,20 @@ pub struct PlanArtifacts {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkspaceInfo {
+    pub packages: Vec<WorkspacePackage>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkspacePackage {
+    pub name: String,
+    pub dir: String,
+    pub manifest: String,
+    pub dependencies: Vec<String>,
+    pub reverse_dependencies: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Plan {
     pub version: String,
     pub created_at: String,
@@ -59,10 +72,12 @@ pub struct Plan {
     pub config_digest: String,
     pub plan_digest: String,
     pub artifacts: PlanArtifacts,
+    pub workspace: WorkspaceInfo,
     pub changed_paths: Vec<ChangedPath>,
     pub obligations: Vec<ObligationRecord>,
     pub selected_surfaces: Vec<SelectedSurface>,
     pub omitted_surfaces: Vec<OmittedSurface>,
+    pub diagnostics: Vec<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -70,9 +85,9 @@ pub struct ReceiptStep {
     pub id: String,
     pub argv: Vec<String>,
     pub exit_code: i32,
-    pub duration_ms: u128,
-    pub stdout_path: Option<Utf8PathBuf>,
-    pub stderr_path: Option<Utf8PathBuf>,
+    pub duration_ms: u64,
+    pub stdout_path: String,
+    pub stderr_path: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
