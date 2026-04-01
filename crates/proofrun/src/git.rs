@@ -100,6 +100,58 @@ pub fn collect_git_changes(repo_root: &Utf8Path, range: &GitRange) -> Result<Git
     })
 }
 
+/// Get the current HEAD commit SHA.
+pub fn head_sha(repo_root: &Utf8Path) -> Result<String> {
+    let sha = git_capture(repo_root, &["rev-parse", "HEAD"])?;
+    Ok(sha.trim().to_owned())
+}
+
+/// Collect staged (indexed) changes.
+///
+/// Paths from `git diff --name-status --cached`, patch from
+/// `git diff --cached --binary`.  Sets `base = HEAD_SHA`,
+/// `head = "STAGED"`, `merge_base = HEAD_SHA`.
+pub fn collect_staged_changes(repo_root: &Utf8Path) -> Result<GitChanges> {
+    let sha = head_sha(repo_root)?;
+
+    let name_status = git_capture(repo_root, &["diff", "--name-status", "--cached"])?;
+    let changes: Vec<ChangedPath> = name_status
+        .lines()
+        .filter_map(parse_name_status_line)
+        .collect();
+
+    let patch = git_capture(repo_root, &["diff", "--cached", "--binary"])?;
+
+    Ok(GitChanges {
+        merge_base: sha,
+        changes,
+        patch,
+    })
+}
+
+/// Collect working tree changes (staged + unstaged vs HEAD).
+///
+/// Paths from `git diff --name-status HEAD`, patch from
+/// `git diff HEAD --binary`.  Sets `base = HEAD_SHA`,
+/// `head = "WORKING_TREE"`, `merge_base = HEAD_SHA`.
+pub fn collect_working_tree_changes(repo_root: &Utf8Path) -> Result<GitChanges> {
+    let sha = head_sha(repo_root)?;
+
+    let name_status = git_capture(repo_root, &["diff", "--name-status", "HEAD"])?;
+    let changes: Vec<ChangedPath> = name_status
+        .lines()
+        .filter_map(parse_name_status_line)
+        .collect();
+
+    let patch = git_capture(repo_root, &["diff", "HEAD", "--binary"])?;
+
+    Ok(GitChanges {
+        merge_base: sha,
+        changes,
+        patch,
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

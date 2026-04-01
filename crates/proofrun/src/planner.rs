@@ -17,7 +17,7 @@ pub struct CandidateSurface {
 /// This matches Python's `fnmatch.fnmatch` behavior on non-path strings
 /// (obligation ids like `pkg:core:tests`). Unlike path glob matching,
 /// `*` here crosses `:` separators.
-fn fnmatch_match(pattern: &str, text: &str) -> bool {
+pub(crate) fn fnmatch_match(pattern: &str, text: &str) -> bool {
     // Convert pattern to regex: `*` → `.*`, escape everything else
     let mut regex_str = String::from("^");
     for ch in pattern.chars() {
