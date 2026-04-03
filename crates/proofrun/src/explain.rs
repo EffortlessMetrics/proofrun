@@ -1018,6 +1018,7 @@ mod tests {
     }
 
     /// Build a Plan from generated components.
+    #[allow(clippy::too_many_arguments)]
     fn make_arb_plan(
         base: String,
         head: String,

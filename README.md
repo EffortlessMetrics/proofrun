@@ -130,4 +130,4 @@ proofrun/
 
 ## Notes
 
-This build environment did not include a Rust toolchain, so the reference implementation is the runnable artifact today. The Rust workspace layout is still included so the intended production architecture is concrete and ready to continue.
+Both tracks are runnable today. The reference implementation (`reference/proofrun_ref.py`) remains the authoritative behavioral spec. The Rust workspace (`crates/`) is a substantially complete port that covers the full planning pipeline plus extensions (multiple change sources, budget gates, plan comparison, enriched diagnostics, and resume execution).

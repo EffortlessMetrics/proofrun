@@ -954,7 +954,7 @@ mod tests {
             }
 
             // (c) lines sorted by surface id
-            let ids: Vec<&str> = lines.iter().map(|l| l.splitn(2, '\t').next().unwrap()).collect();
+            let ids: Vec<&str> = lines.iter().map(|l| l.split('\t').next().unwrap()).collect();
             for w in ids.windows(2) {
                 prop_assert!(
                     w[0] <= w[1],

@@ -215,6 +215,7 @@ pub fn solve_exact_cover(
     let mut best_choice: Option<Vec<usize>> = None;
     let mut best_score: Option<(f64, usize, Vec<String>)> = None;
 
+    #[allow(clippy::too_many_arguments)]
     fn recurse(
         remaining: &BTreeSet<String>,
         chosen: &mut Vec<usize>,
@@ -1022,9 +1023,7 @@ mod tests {
                     binding_str
                         .split(',')
                         .filter_map(|kv| {
-                            let mut parts = kv.splitn(2, '=');
-                            let k = parts.next()?;
-                            let v = parts.next()?;
+                            let (k, v) = kv.split_once('=')?;
                             Some((k.to_string(), v.to_string()))
                         })
                         .collect()
@@ -1139,7 +1138,7 @@ mod tests {
             let cand_strats: Vec<_> = (0..num_cands)
                 .map(move |cand_idx| {
                     // Generate a bitmask for which obligations this candidate covers (at least 1 bit set)
-                    (1u64..((1u64 << ob_count) as u64), 1u32..=20).prop_map(
+                    (1u64..(1u64 << ob_count), 1u32..=20).prop_map(
                         move |(mask, cost_int)| {
                             let mut covers: Vec<String> = Vec::new();
                             for ob_i in 0..ob_count {
@@ -1221,9 +1220,8 @@ mod tests {
             let mut id_set = BTreeSet::new();
             let mut has_dup_id = false;
 
-            for i in 0..n {
+            for (i, c) in candidates.iter().enumerate().take(n) {
                 if mask & (1u64 << i) != 0 {
-                    let c = &candidates[i];
                     if !id_set.insert(c.id.clone()) {
                         has_dup_id = true;
                         break;

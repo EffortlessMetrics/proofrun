@@ -23,3 +23,24 @@ dry-run plan=".proofrun/plan.json":
 
 test:
     python3 -m unittest discover -s tests -p 'test_*.py'
+
+# Rust targets
+rust-build:
+    cargo build --workspace
+
+rust-test:
+    cargo test --workspace
+
+rust-clippy:
+    cargo clippy --workspace --all-targets -- -D warnings
+
+rust-fmt-check:
+    cargo fmt --all -- --check
+
+rust-fmt:
+    cargo fmt --all
+
+rust-all: rust-build rust-test rust-clippy rust-fmt-check
+
+# Full check (Python + Rust)
+check-all: test rust-all
