@@ -5,3 +5,6 @@ __pycache__/
 *.pyo
 *.pyd
 .DS_Store
+
+# Local generated fixture repository for demo workspace tests; keep this untracked.
+fixtures/demo-workspace/repo/
