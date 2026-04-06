@@ -19,9 +19,9 @@ pub use emit::{
     emit_plan_markdown, emit_structured_json, write_plan_artifacts, MatrixEntry,
 };
 pub use explain::{
-    query_obligation, query_path, query_surface, render_explanation, trace_plan,
-    FallbackObligation, ObligationExplanation, PathExplanation, PathTrace, ProfileObligation,
-    RuleMatch, SurfaceExplanation, TraceOutput,
+    explain_solver, query_obligation, query_path, query_solver_surface, query_surface,
+    render_explanation, trace_plan, FallbackObligation, ObligationExplanation, PathExplanation,
+    PathTrace, ProfileObligation, RuleMatch, SolverExplanation, SurfaceExplanation, TraceOutput,
 };
 pub use git::{
     collect_git_changes, collect_staged_changes, collect_working_tree_changes, head_sha,

@@ -38,10 +38,12 @@ enum Command {
         #[arg(long)]
         warn_on_workspace_smoke_only: bool,
     },
-    /// Render a plan summary as Markdown, or query path/obligation/surface traceability.
+    /// Render a plan summary as Markdown, query path/obligation/surface traceability, or inspect solver decisions.
     Explain {
         #[arg(long, default_value = ".proofrun/plan.json")]
         plan: Utf8PathBuf,
+        #[arg(long)]
+        solver: bool,
         #[arg(long)]
         path: Option<String>,
         #[arg(long)]
@@ -218,12 +220,25 @@ fn main() -> Result<()> {
         }
         Command::Explain {
             plan: plan_path,
+            solver,
             path,
             obligation,
             surface,
         } => {
             let plan = load_plan(&plan_path)?;
-            if let Some(p) = path {
+            if solver {
+                if path.is_some() || obligation.is_some() {
+                    anyhow::bail!("--solver currently supports the plan-wide view or --surface <id>");
+                }
+
+                if let Some(id) = surface {
+                    let result = proofrun::query_solver_surface(&plan, &id)?;
+                    print_json_sorted(&result)?;
+                } else {
+                    let result = proofrun::explain_solver(&plan)?;
+                    print_json_sorted(&result)?;
+                }
+            } else if let Some(p) = path {
                 let result = proofrun::query_path(&plan, &p);
                 print_json_sorted(&result)?;
             } else if let Some(id) = obligation {
