@@ -20,8 +20,14 @@ This file tracks the publication path for the Rust CLI.
 ```bash
 cargo publish --dry-run -p proofrun
 cargo package --list -p proofrun
-cargo publish --dry-run -p cargo-proofrun
 cargo package --list -p cargo-proofrun
+```
+
+`cargo publish --dry-run -p cargo-proofrun` becomes valid once the target `proofrun` version is visible on crates.io. The helper below checks that boundary explicitly:
+
+```bash
+PROOFRUN_VERSION=$(sed -n 's/^version = "\(.*\)"/\1/p' crates/proofrun/Cargo.toml | head -n1)
+bash scripts/wait-for-crates-io-version.sh proofrun "$PROOFRUN_VERSION" 0 1 && cargo publish --dry-run -p cargo-proofrun
 ```
 
 4. Verify golden/reference behavior for the release slice.
@@ -32,7 +38,7 @@ git tag -a v0.1.0-alpha.1 -m "release: cargo-proofrun 0.1.0-alpha.1"
 git push origin v0.1.0-alpha.1
 ```
 
-6. Trigger GitHub `release` workflow (or push the tag to publish release binaries).
+6. Trigger GitHub `release` workflow (or push the tag to publish release binaries). The workflow publishes `proofrun`, waits for crates.io index visibility, then publishes `cargo-proofrun`.
 
 ## Post-release
 
