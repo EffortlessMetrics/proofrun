@@ -7,14 +7,14 @@ It takes a Git change range plus checked-in repo policy and turns that into the 
 This bundle includes two parallel tracks:
 
 1. a **runnable reference implementation** in `reference/proofrun_ref.py`
-2. a **target Rust workspace layout** in `crates/` that mirrors the intended production architecture
+2. a **Rust workspace implementation** in `crates/` that carries the primary CLI, library, and release rail
 
-The reference implementation exists so the repo is useful immediately. The Rust workspace exists so the end-state architecture is explicit from day one.
+The reference implementation remains the authoritative behavioral spec. The Rust workspace is the primary in-repo operator surface and the path intended for public release.
 
 ## What is in the box
 
 - `reference/proofrun_ref.py` — stdlib-only reference CLI
-- `crates/` — target Rust crate layout
+- `crates/` — Rust library and Cargo subcommand implementation
 - `schema/` — versioned JSON Schemas for config, plan, and receipt artifacts
 - `examples/proofrun.toml` — example repo policy
 - `fixtures/demo-workspace/` — sample Cargo workspace, Git history, and sample outputs
@@ -23,7 +23,16 @@ The reference implementation exists so the repo is useful immediately. The Rust 
 
 ## Commands
 
-The runnable path today is the reference CLI:
+The primary in-repo CLI path is the Rust implementation:
+
+```bash
+cargo run -p cargo-proofrun -- doctor
+cargo run -p cargo-proofrun -- plan --base <rev> --head <rev> --profile ci
+cargo run -p cargo-proofrun -- explain --plan .proofrun/plan.json
+cargo run -p cargo-proofrun -- run --plan .proofrun/plan.json --dry-run
+```
+
+The reference/spec path remains available:
 
 ```bash
 python3 reference/proofrun_ref.py doctor
@@ -34,12 +43,35 @@ python3 reference/proofrun_ref.py emit github-actions --plan .proofrun/plan.json
 python3 reference/proofrun_ref.py run --plan .proofrun/plan.json --dry-run
 ```
 
-The target product surface remains:
+Installed usage is the intended public surface:
 
 ```bash
 cargo proofrun plan --base <rev> --head <rev> --profile ci
 cargo proofrun explain --plan .proofrun/plan.json
 cargo proofrun run --plan .proofrun/plan.json
+```
+
+## Status
+
+- `cargo-proofrun` is the CLI to operate locally in this repo.
+- `reference/proofrun_ref.py` remains the authoritative behavioral reference and parity oracle.
+- The supported public surface is the CLI first. The `proofrun` library crate is not yet documented as a stable public API.
+
+## Install
+
+When the public alpha is visible on crates.io, install it with Cargo:
+
+```bash
+cargo install cargo-proofrun
+cargo proofrun --help
+cargo proofrun plan --repo fixtures/demo-workspace/repo --base initial --head core_change --profile ci
+```
+
+Until that alpha is visible, use the in-repo Rust CLI:
+
+```bash
+cargo run -p cargo-proofrun -- --help
+cargo run -p cargo-proofrun -- plan --repo fixtures/demo-workspace/repo --base initial --head core_change --profile ci
 ```
 
 ## What the tool does
@@ -130,4 +162,4 @@ proofrun/
 
 ## Notes
 
-This build environment did not include a Rust toolchain, so the reference implementation is the runnable artifact today. The Rust workspace layout is still included so the intended production architecture is concrete and ready to continue.
+The Rust workspace covers the full planning pipeline plus extensions such as multiple change sources, budget gates, plan comparison, enriched diagnostics, and resume execution. The Python reference remains the authority for core behavior and regression parity.

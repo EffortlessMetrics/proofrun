@@ -1,0 +1,110 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://proofrun.dev/schema/plan.schema.json",
+  "title": "proofrun plan",
+  "type": "object",
+  "required": [
+    "version",
+    "created_at",
+    "repo_root",
+    "base",
+    "head",
+    "merge_base",
+    "profile",
+    "changed_paths",
+    "obligations",
+    "selected_surfaces",
+    "artifacts",
+    "plan_digest"
+  ],
+  "properties": {
+    "version": { "type": "string" },
+    "created_at": { "type": "string" },
+    "repo_root": { "type": "string" },
+    "base": { "type": "string" },
+    "head": { "type": "string" },
+    "merge_base": { "type": "string" },
+    "profile": { "type": "string" },
+    "config_digest": { "type": "string" },
+    "plan_digest": { "type": "string" },
+    "artifacts": {
+      "type": "object",
+      "required": ["output_dir", "diff_patch", "plan_json", "plan_markdown", "commands_shell", "github_actions"],
+      "properties": {
+        "output_dir": { "type": "string" },
+        "diff_patch": { "type": "string" },
+        "plan_json": { "type": "string" },
+        "plan_markdown": { "type": "string" },
+        "commands_shell": { "type": "string" },
+        "github_actions": { "type": "string" }
+      },
+      "additionalProperties": true
+    },
+    "changed_paths": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["path", "status", "owner"],
+        "properties": {
+          "path": { "type": "string" },
+          "status": { "type": "string" },
+          "owner": { "type": ["string", "null"] }
+        },
+        "additionalProperties": true
+      }
+    },
+    "obligations": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "reasons"],
+        "properties": {
+          "id": { "type": "string" },
+          "reasons": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["source"],
+              "properties": {
+                "source": { "type": "string" },
+                "path": { "type": ["string", "null"] },
+                "rule": { "type": ["string", "null"] },
+                "pattern": { "type": ["string", "null"] }
+              },
+              "additionalProperties": true
+            }
+          }
+        },
+        "additionalProperties": true
+      }
+    },
+    "selected_surfaces": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "template", "cost", "covers", "run"],
+        "properties": {
+          "id": { "type": "string" },
+          "template": { "type": "string" },
+          "cost": { "type": "number" },
+          "covers": { "type": "array", "items": { "type": "string" } },
+          "run": { "type": "array", "items": { "type": "string" } }
+        },
+        "additionalProperties": true
+      }
+    },
+    "omitted_surfaces": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "reason"],
+        "properties": {
+          "id": { "type": "string" },
+          "reason": { "type": "string" }
+        },
+        "additionalProperties": true
+      }
+    }
+  },
+  "additionalProperties": true
+}

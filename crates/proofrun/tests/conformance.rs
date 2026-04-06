@@ -24,8 +24,15 @@ fn workspace_root() -> camino::Utf8PathBuf {
         .to_path_buf()
 }
 
-/// The reference path prefix used in recorded fixture artifacts.
 const REF_REPO_ROOT: &str = "/mnt/data/proofrun/fixtures/demo-workspace/repo";
+
+fn fixture_root() -> camino::Utf8PathBuf {
+    workspace_root().join("fixtures/demo-workspace")
+}
+
+fn fixture_repo_root() -> camino::Utf8PathBuf {
+    fixture_root().join("repo")
+}
 
 /// Replace the reference repo root with the actual repo root in a string.
 /// Normalizes to forward slashes for cross-platform consistency.
@@ -39,6 +46,14 @@ fn normalize_slashes(text: &str) -> String {
     // In JSON, backslashes are escaped as \\, so we need to handle both
     // the raw string and JSON-escaped versions
     text.replace('\\', "/")
+}
+
+fn normalize_artifact_text(text: &str) -> String {
+    normalize_slashes(text).replace("\r\n", "\n")
+}
+
+fn fixture_scenario_path(scenario: &str) -> camino::Utf8PathBuf {
+    fixture_root().join("sample").join(scenario)
 }
 
 /// Compare two serde_json::Value fields, normalizing any string values that
@@ -61,23 +76,44 @@ fn assert_json_eq_normalized(
     );
 }
 
+// Shared scenario commit pairs.
+const SCENARIO_CORE_CHANGE: (&str, &str) = (
+    "8a98e3f3f44b8fcb4ae8f853911b4c5bb1d26717",
+    "ae21fea001cb9fc82101f7368ec5cfb4a6fa46eb",
+);
+const SCENARIO_DOCS_CHANGE: (&str, &str) = (
+    "ae21fea001cb9fc82101f7368ec5cfb4a6fa46eb",
+    "1dcb4c3fd4154e4d7cd12bcff0101679f84fc1dd",
+);
+const SCENARIO_EMPTY_DIFF: (&str, &str) = (
+    "8a98e3f3f44b8fcb4ae8f853911b4c5bb1d26717",
+    "8a98e3f3f44b8fcb4ae8f853911b4c5bb1d26717",
+);
+const SCENARIO_DELETION_ONLY: (&str, &str) = (
+    "ae21fea001cb9fc82101f7368ec5cfb4a6fa46eb",
+    "75883c2489a7eb2807c62e886076a459df88b45b",
+);
+const SCENARIO_RENAME: (&str, &str) = (
+    "ae21fea001cb9fc82101f7368ec5cfb4a6fa46eb",
+    "91ebd2444afe6b8a600f6dc984171fa58bf7d4ac",
+);
+
 /// Run plan_repo for a given scenario and return the plan.
-fn run_scenario(base: &str, head: &str) -> proofrun::Plan {
-    let ws = workspace_root();
-    let repo_root = ws.join("fixtures/demo-workspace/repo");
+fn run_scenario_from_root(base: &str, head: &str, repo_root: &camino::Utf8Path) -> proofrun::Plan {
     let range = GitRange {
         base: base.to_string(),
         head: head.to_string(),
     };
-    plan_repo(&repo_root, range, "ci").expect("plan_repo should succeed")
+    plan_repo(repo_root, range, "ci").expect("plan_repo should succeed")
+}
+
+fn run_scenario(base: &str, head: &str) -> proofrun::Plan {
+    run_scenario_from_root(base, head, &fixture_repo_root())
 }
 
 /// Load the recorded plan.json for a scenario.
 fn load_reference_plan(scenario: &str) -> serde_json::Value {
-    let ws = workspace_root();
-    let path = ws.join(format!(
-        "fixtures/demo-workspace/sample/{scenario}/plan.json"
-    ));
+    let path = fixture_scenario_path(scenario).join("plan.json");
     let content =
         std::fs::read_to_string(&path).unwrap_or_else(|e| panic!("failed to read {path}: {e}"));
     serde_json::from_str(&content).expect("plan.json should be valid JSON")
@@ -85,19 +121,13 @@ fn load_reference_plan(scenario: &str) -> serde_json::Value {
 
 /// Load a recorded text artifact for a scenario.
 fn load_reference_text(scenario: &str, filename: &str) -> String {
-    let ws = workspace_root();
-    let path = ws.join(format!(
-        "fixtures/demo-workspace/sample/{scenario}/{filename}"
-    ));
+    let path = fixture_scenario_path(scenario).join(filename);
     std::fs::read_to_string(&path).unwrap_or_else(|e| panic!("failed to read {path}: {e}"))
 }
 
 /// Load the recorded receipt.json for a scenario.
 fn load_reference_receipt(scenario: &str) -> serde_json::Value {
-    let ws = workspace_root();
-    let path = ws.join(format!(
-        "fixtures/demo-workspace/sample/{scenario}/receipt.json"
-    ));
+    let path = fixture_scenario_path(scenario).join("receipt.json");
     let content =
         std::fs::read_to_string(&path).unwrap_or_else(|e| panic!("failed to read {path}: {e}"));
     serde_json::from_str(&content).expect("receipt.json should be valid JSON")
@@ -142,13 +172,15 @@ fn assert_emitted_text_matches(plan: &proofrun::Plan, scenario: &str) {
     // plan.md — compare line-by-line, skipping the plan digest line
     let actual_md = emit_plan_markdown(plan);
     let expected_md = load_reference_text(scenario, "plan.md");
-    let expected_md_normalized = normalize_ref_path(&expected_md, actual_repo_root);
+    let expected_md_normalized =
+        normalize_ref_path(&normalize_artifact_text(&expected_md), actual_repo_root);
+    let actual_md_normalized = normalize_artifact_text(&actual_md);
 
-    let actual_lines: Vec<String> = normalize_slashes(&actual_md)
+    let actual_lines: Vec<String> = actual_md_normalized
         .lines()
         .map(|l| l.to_owned())
         .collect();
-    let expected_lines: Vec<String> = normalize_slashes(&expected_md_normalized)
+    let expected_lines: Vec<String> = expected_md_normalized
         .lines()
         .map(|l| l.to_owned())
         .collect();
@@ -170,30 +202,31 @@ fn assert_emitted_text_matches(plan: &proofrun::Plan, scenario: &str) {
     // commands.sh — should match exactly after path normalization
     let actual_sh = emit_commands_shell(plan);
     let expected_sh = load_reference_text(scenario, "commands.sh");
-    let expected_sh_normalized = normalize_ref_path(&expected_sh, actual_repo_root);
+    let expected_sh_normalized =
+        normalize_ref_path(&normalize_artifact_text(&expected_sh), actual_repo_root);
+    let actual_sh_normalized = normalize_artifact_text(&actual_sh);
     assert_eq!(
-        normalize_slashes(&actual_sh),
-        normalize_slashes(&expected_sh_normalized),
+        actual_sh_normalized,
+        expected_sh_normalized,
         "{scenario}/commands.sh mismatch"
     );
 
     // github-actions.yml — should match exactly after path normalization
     let actual_gha = emit_github_actions(plan);
     let expected_gha = load_reference_text(scenario, "github-actions.yml");
-    let expected_gha_normalized = normalize_ref_path(&expected_gha, actual_repo_root);
+    let expected_gha_normalized =
+        normalize_ref_path(&normalize_artifact_text(&expected_gha), actual_repo_root);
+    let actual_gha_normalized = normalize_artifact_text(&actual_gha);
     assert_eq!(
-        normalize_slashes(&actual_gha),
-        normalize_slashes(&expected_gha_normalized),
+        actual_gha_normalized,
+        expected_gha_normalized,
         "{scenario}/github-actions.yml mismatch"
     );
 }
 
 /// Assert that dry-run receipt structure matches the reference.
-fn assert_receipt_matches(plan: &proofrun::Plan, scenario: &str) {
-    let ws = workspace_root();
-    let repo_root = ws.join("fixtures/demo-workspace/repo");
-
-    let receipt = execute_plan(&repo_root, plan, ExecutionMode::DryRun)
+fn assert_receipt_matches(repo_root: &camino::Utf8Path, plan: &proofrun::Plan, scenario: &str) {
+    let receipt = execute_plan(repo_root, plan, ExecutionMode::DryRun)
         .expect("dry-run execution should succeed");
 
     let reference = load_reference_receipt(scenario);
@@ -228,60 +261,93 @@ fn assert_receipt_matches(plan: &proofrun::Plan, scenario: &str) {
     }
 }
 
-// ─── Test cases ───
-
 #[test]
 fn test_core_change_plan_fields() {
-    let plan = run_scenario(
-        "8a98e3f3f44b8fcb4ae8f853911b4c5bb1d26717",
-        "ae21fea001cb9fc82101f7368ec5cfb4a6fa46eb",
-    );
-    let reference = load_reference_plan("core-change");
-    assert_plan_fields_match(&plan, &reference, "core-change");
+    assert_plan_fields_match(&run_scenario(SCENARIO_CORE_CHANGE.0, SCENARIO_CORE_CHANGE.1), &load_reference_plan("core-change"), "core-change");
 }
 
 #[test]
 fn test_core_change_emitted_text() {
-    let plan = run_scenario(
-        "8a98e3f3f44b8fcb4ae8f853911b4c5bb1d26717",
-        "ae21fea001cb9fc82101f7368ec5cfb4a6fa46eb",
-    );
-    assert_emitted_text_matches(&plan, "core-change");
+    assert_emitted_text_matches(&run_scenario(SCENARIO_CORE_CHANGE.0, SCENARIO_CORE_CHANGE.1), "core-change");
 }
 
 #[test]
 fn test_core_change_receipt() {
-    let plan = run_scenario(
-        "8a98e3f3f44b8fcb4ae8f853911b4c5bb1d26717",
-        "ae21fea001cb9fc82101f7368ec5cfb4a6fa46eb",
-    );
-    assert_receipt_matches(&plan, "core-change");
+    assert_receipt_matches(&fixture_repo_root(), &run_scenario(SCENARIO_CORE_CHANGE.0, SCENARIO_CORE_CHANGE.1), "core-change");
 }
 
 #[test]
 fn test_docs_change_plan_fields() {
-    let plan = run_scenario(
-        "ae21fea001cb9fc82101f7368ec5cfb4a6fa46eb",
-        "1dcb4c3fd4154e4d7cd12bcff0101679f84fc1dd",
-    );
-    let reference = load_reference_plan("docs-change");
-    assert_plan_fields_match(&plan, &reference, "docs-change");
+    assert_plan_fields_match(&run_scenario(SCENARIO_DOCS_CHANGE.0, SCENARIO_DOCS_CHANGE.1), &load_reference_plan("docs-change"), "docs-change");
 }
 
 #[test]
 fn test_docs_change_emitted_text() {
-    let plan = run_scenario(
-        "ae21fea001cb9fc82101f7368ec5cfb4a6fa46eb",
-        "1dcb4c3fd4154e4d7cd12bcff0101679f84fc1dd",
-    );
-    assert_emitted_text_matches(&plan, "docs-change");
+    assert_emitted_text_matches(&run_scenario(SCENARIO_DOCS_CHANGE.0, SCENARIO_DOCS_CHANGE.1), "docs-change");
 }
 
 #[test]
 fn test_docs_change_receipt() {
-    let plan = run_scenario(
-        "ae21fea001cb9fc82101f7368ec5cfb4a6fa46eb",
-        "1dcb4c3fd4154e4d7cd12bcff0101679f84fc1dd",
+    assert_receipt_matches(&fixture_repo_root(), &run_scenario(SCENARIO_DOCS_CHANGE.0, SCENARIO_DOCS_CHANGE.1), "docs-change");
+}
+
+#[test]
+fn test_empty_diff_plan_fields() {
+    assert_plan_fields_match(&run_scenario(SCENARIO_EMPTY_DIFF.0, SCENARIO_EMPTY_DIFF.1), &load_reference_plan("empty-diff"), "empty-diff");
+}
+
+#[test]
+fn test_empty_diff_emitted_text() {
+    assert_emitted_text_matches(&run_scenario(SCENARIO_EMPTY_DIFF.0, SCENARIO_EMPTY_DIFF.1), "empty-diff");
+}
+
+#[test]
+fn test_empty_diff_receipt() {
+    assert_receipt_matches(&fixture_repo_root(), &run_scenario(SCENARIO_EMPTY_DIFF.0, SCENARIO_EMPTY_DIFF.1), "empty-diff");
+}
+
+#[test]
+fn test_deletion_only_plan_fields() {
+    assert_plan_fields_match(&run_scenario(SCENARIO_DELETION_ONLY.0, SCENARIO_DELETION_ONLY.1), &load_reference_plan("deletion-only"), "deletion-only");
+}
+
+#[test]
+fn test_deletion_only_emitted_text() {
+    assert_emitted_text_matches(&run_scenario(SCENARIO_DELETION_ONLY.0, SCENARIO_DELETION_ONLY.1), "deletion-only");
+}
+
+#[test]
+fn test_deletion_only_receipt() {
+    assert_receipt_matches(&fixture_repo_root(), &run_scenario(SCENARIO_DELETION_ONLY.0, SCENARIO_DELETION_ONLY.1), "deletion-only");
+}
+
+#[test]
+fn test_rename_plan_fields() {
+    assert_plan_fields_match(&run_scenario(SCENARIO_RENAME.0, SCENARIO_RENAME.1), &load_reference_plan("rename"), "rename");
+}
+
+#[test]
+fn test_rename_emitted_text() {
+    assert_emitted_text_matches(&run_scenario(SCENARIO_RENAME.0, SCENARIO_RENAME.1), "rename");
+}
+
+#[test]
+fn test_rename_receipt() {
+    assert_receipt_matches(&fixture_repo_root(), &run_scenario(SCENARIO_RENAME.0, SCENARIO_RENAME.1), "rename");
+}
+
+#[test]
+fn test_workspace_discovery_from_nested_package_path_matches_root_output() {
+    let repo_root = fixture_repo_root();
+    let nested_repo_root = repo_root.join("crates/core");
+
+    let nested_plan = run_scenario_from_root(SCENARIO_DOCS_CHANGE.0, SCENARIO_DOCS_CHANGE.1, &nested_repo_root);
+    let root_plan = run_scenario(SCENARIO_DOCS_CHANGE.0, SCENARIO_DOCS_CHANGE.1);
+
+    let root_plan_value = serde_json::to_value(root_plan).unwrap_or_else(|e| panic!("serialize root plan failed: {e}"));
+    assert_plan_fields_match(&nested_plan, &root_plan_value, "docs-change (nested path)");
+    assert!(
+        nested_plan.repo_root.ends_with("crates/core"),
+        "nested scenario should resolve repo root to the nested package path",
     );
-    assert_receipt_matches(&plan, "docs-change");
 }

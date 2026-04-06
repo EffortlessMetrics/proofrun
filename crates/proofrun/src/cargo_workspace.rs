@@ -1,4 +1,4 @@
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::{BTreeMap, BTreeSet, HashSet};
 
 use anyhow::{Context, Result};
 use camino::{Utf8Path, Utf8PathBuf};
@@ -43,6 +43,36 @@ mod metadata {
     }
 }
 
+mod cargo_toml {
+    use serde::Deserialize;
+
+    #[derive(Deserialize)]
+    pub struct WorkspaceConfig {
+        pub workspace: Option<Workspace>,
+    }
+
+    #[derive(Deserialize)]
+    pub struct Workspace {
+        pub members: Vec<String>,
+    }
+
+    #[derive(Deserialize)]
+    pub struct PackageConfig {
+        pub package: PackageMetadata,
+        #[serde(default)]
+        pub dependencies: std::collections::BTreeMap<String, toml::value::Value>,
+    }
+
+    #[derive(Deserialize)]
+    pub struct PackageMetadata {
+        pub name: String,
+    }
+
+    pub fn resolve_workspace_members(value: &WorkspaceConfig) -> Vec<String> {
+        value.workspace.as_ref().map(|ws| ws.members.clone()).unwrap_or_default()
+    }
+}
+
 impl WorkspaceGraph {
     /// Discover workspace packages via `cargo metadata`.
     ///
@@ -50,7 +80,7 @@ impl WorkspaceGraph {
     /// parses the JSON output, and builds the workspace graph with forward and reverse
     /// dependencies filtered to workspace-local packages only.
     pub fn discover(repo_root: &Utf8Path) -> Result<Self> {
-        let manifest_path = repo_root.join("Cargo.toml");
+        let manifest_path = workspace_manifest_path(repo_root)?;
         let output = std::process::Command::new("cargo")
             .arg("metadata")
             .arg("--format-version")
@@ -63,6 +93,9 @@ impl WorkspaceGraph {
 
         if !output.status.success() {
             let stderr = String::from_utf8_lossy(&output.stderr);
+            if stderr.contains("no targets specified in the manifest") {
+                return Self::discover_from_toml(repo_root);
+            }
             anyhow::bail!(
                 "cargo metadata failed (exit {}): {}",
                 output.status.code().unwrap_or(-1),
@@ -147,6 +180,86 @@ impl WorkspaceGraph {
         })
     }
 
+    fn discover_from_toml(repo_root: &Utf8Path) -> Result<Self> {
+        let workspace_manifest = workspace_manifest_path(repo_root)?;
+        let content = std::fs::read_to_string(&workspace_manifest)
+            .with_context(|| format!("failed to read workspace manifest {workspace_manifest}"))?;
+
+        let parsed: cargo_toml::WorkspaceConfig = toml::from_str(&content)
+            .with_context(|| format!("failed to parse workspace manifest {workspace_manifest}"))?;
+        let members = cargo_toml::resolve_workspace_members(&parsed);
+        let workspace_root = workspace_manifest
+            .parent()
+            .map(Utf8PathBuf::from)
+            .unwrap_or_else(Utf8PathBuf::new);
+
+        let mut loaded: Vec<(Utf8PathBuf, cargo_toml::PackageConfig)> = Vec::new();
+        for member in members {
+            let manifest_path = workspace_root.join(&member).join("Cargo.toml");
+            let manifest_content = std::fs::read_to_string(&manifest_path).with_context(|| {
+                format!("failed to read workspace member manifest {manifest_path}")
+            })?;
+
+            let parsed_package: cargo_toml::PackageConfig = toml::from_str(&manifest_content)
+                .with_context(|| format!("failed to parse manifest for member {member}"))?;
+            loaded.push((manifest_path, parsed_package));
+        }
+
+        let member_names: HashSet<String> =
+            loaded.iter().map(|(_, pkg)| pkg.package.name.clone()).collect();
+
+        let mut packages = Vec::new();
+        for (manifest_path, parsed_package) in loaded {
+            let manifest_rel = pathdiff_utf8(&manifest_path, &workspace_root);
+            let dir = manifest_rel
+                .parent()
+                .map(Utf8PathBuf::from)
+                .unwrap_or_else(|| Utf8PathBuf::from("."));
+
+            let deps_set: HashSet<String> = parsed_package
+                .dependencies
+                .keys()
+                .filter(|dep_name| member_names.contains(*dep_name))
+                .cloned()
+                .collect();
+
+            let mut deps: Vec<String> = deps_set
+                .into_iter()
+                .filter(|dep| dep != &parsed_package.package.name)
+                .collect();
+            deps.sort();
+
+            packages.push(PackageInfo {
+                name: parsed_package.package.name,
+                dir,
+                manifest: manifest_rel,
+                dependencies: deps,
+            });
+        }
+
+        packages.sort_by(|a, b| a.name.cmp(&b.name));
+
+        let mut reverse_deps: BTreeMap<String, Vec<String>> = BTreeMap::new();
+        for pkg in &packages {
+            reverse_deps.entry(pkg.name.clone()).or_default();
+        }
+        for pkg in &packages {
+            for dep in &pkg.dependencies {
+                if let Some(rdeps) = reverse_deps.get_mut(dep) {
+                    rdeps.push(pkg.name.clone());
+                }
+            }
+        }
+        for rdeps in reverse_deps.values_mut() {
+            rdeps.sort();
+        }
+
+        Ok(WorkspaceGraph {
+            packages,
+            reverse_deps,
+        })
+    }
+
     /// Return the name of the package whose directory is the longest prefix of `path`,
     /// or `None` if no package directory matches.
     ///
@@ -183,6 +296,30 @@ impl WorkspaceGraph {
 
         best.map(|(name, _)| name)
     }
+}
+
+fn workspace_manifest_path(start: &Utf8Path) -> Result<Utf8PathBuf> {
+    let mut current = start.to_path_buf();
+
+    loop {
+        let candidate = current.join("Cargo.toml");
+        if candidate.exists() {
+            let content = std::fs::read_to_string(&candidate)
+                .with_context(|| format!("failed to read manifest {candidate}"))?;
+            if let Ok(parsed) = toml::from_str::<cargo_toml::WorkspaceConfig>(&content) {
+                if parsed.workspace.is_some() {
+                    return Ok(candidate);
+                }
+            }
+        }
+
+        match current.parent() {
+            Some(parent) => current = parent.to_path_buf(),
+            None => break,
+        }
+    }
+
+    anyhow::bail!("unable to locate workspace manifest from {start}");
 }
 
 /// Compute a relative path from `base` to `target`, both assumed to be absolute UTF-8 paths.

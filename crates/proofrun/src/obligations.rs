@@ -840,7 +840,7 @@ mod tests {
     fn arb_rule_from_paths(paths: Vec<String>) -> impl Strategy<Value = Rule> {
         let n = paths.len();
         // Pick 1-2 patterns from the available paths
-        let pat_count = 1..=n.min(2).max(1);
+        let pat_count = 1..=n.clamp(1, 2);
         let paths_clone = paths.clone();
         pat_count.prop_flat_map(move |count| {
             let ps = paths_clone.clone();
@@ -1027,7 +1027,7 @@ mod tests {
             }
 
             // (d) Rule-match reasons have path, rule, and pattern fields set
-            for (_id, reasons) in &obligations {
+            for reasons in obligations.values() {
                 for reason in reasons {
                     if reason.source == "rule" {
                         prop_assert!(

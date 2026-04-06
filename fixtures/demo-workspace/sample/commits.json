@@ -1,5 +1,8 @@
 {
   "initial": "8a98e3f3f44b8fcb4ae8f853911b4c5bb1d26717",
   "core_change": "ae21fea001cb9fc82101f7368ec5cfb4a6fa46eb",
-  "docs_change": "1dcb4c3fd4154e4d7cd12bcff0101679f84fc1dd"
+  "docs_change": "1dcb4c3fd4154e4d7cd12bcff0101679f84fc1dd",
+  "deletion_only": "75883c2489a7eb2807c62e886076a459df88b45b",
+  "rename_core": "91ebd2444afe6b8a600f6dc984171fa58bf7d4ac",
+  "empty_diff": "8a98e3f3f44b8fcb4ae8f853911b4c5bb1d26717"
 }
