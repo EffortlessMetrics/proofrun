@@ -34,7 +34,8 @@ pub use obligations::{
 pub use planner::{build_candidates, solve_exact_cover, CandidateSurface};
 pub use run::{execute_failed_only, execute_plan, execute_with_resume, ExecutionMode};
 
-use anyhow::Result;
+use anyhow::{Context, Result};
+use camino::Utf8Path;
 
 /// Result of checking budget gates against a plan.
 #[derive(Debug, Clone)]
@@ -103,7 +104,50 @@ pub fn check_budget_gates(
 
     BudgetGateResult { failed, messages }
 }
-use camino::Utf8Path;
+
+fn validate_json(path: &Utf8Path, value: &serde_json::Value, schema_file: &str) -> Result<()> {
+    let schema_json = match schema_file {
+        "schema/plan.schema.json" => include_str!("../../../schema/plan.schema.json"),
+        "schema/receipt.schema.json" => include_str!("../../../schema/receipt.schema.json"),
+        _ => unreachable!("unsupported schema file: {schema_file}"),
+    };
+
+    let schema: serde_json::Value =
+        serde_json::from_str(schema_json).with_context(|| format!("invalid {schema_file}"))?;
+    let validator = jsonschema::validator_for(&schema)
+        .with_context(|| format!("failed to compile {schema_file}"))?;
+    if validator.is_valid(value) {
+        return Ok(());
+    }
+
+    let details = validator
+        .iter_errors(value)
+        .map(|error| format!("  at {}: {}", error.instance_path(), error))
+        .collect::<Vec<_>>()
+        .join("\n");
+    anyhow::bail!("validation failed for {path} against {schema_file}:\n{details}")
+}
+
+/// Parse and validate a plan JSON document against `schema/plan.schema.json`.
+pub fn parse_plan_from_json(raw: &str, path: &Utf8Path) -> Result<Plan> {
+    let value: serde_json::Value =
+        serde_json::from_str(raw).with_context(|| format!("failed to parse plan file {path}"))?;
+    validate_json(path, &value, "schema/plan.schema.json")?;
+    let plan: Plan = serde_json::from_value(value)
+        .with_context(|| format!("failed to deserialize plan file {path}"))?;
+    Ok(plan)
+}
+
+/// Parse and validate a receipt JSON document against `schema/receipt.schema.json`.
+pub fn parse_receipt_from_json(raw: &str, path: &Utf8Path) -> Result<Receipt> {
+    let value: serde_json::Value = serde_json::from_str(raw)
+        .with_context(|| format!("failed to parse receipt file {path}"))?;
+    validate_json(path, &value, "schema/receipt.schema.json")?;
+    let receipt: Receipt = serde_json::from_value(value)
+        .with_context(|| format!("failed to deserialize receipt file {path}"))?;
+    Ok(receipt)
+}
+
 use model::ChangedPath;
 use sha2::{Digest, Sha256};
 use time::OffsetDateTime;

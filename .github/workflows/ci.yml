@@ -65,3 +65,162 @@ jobs:
 
       - name: Rustfmt
         run: cargo fmt --all -- --check
+
+      - name: Fixture golden diff checks
+        run: |
+          python3 - <<'PY'
+import difflib
+import json
+import subprocess
+from pathlib import Path
+
+
+def normalize_text(text: str, old_root: str, new_root: str) -> str:
+    return (
+        text.replace(old_root, new_root)
+        .replace(old_root.replace("\\", "/"), new_root.replace("\\", "/"))
+    )
+
+
+def normalize_plan_markdown(text: str) -> str:
+    lines = []
+    for line in text.splitlines():
+        if line.startswith("- plan digest:"):
+            continue
+        lines.append(line)
+    return "\n".join(lines).rstrip() + "\n"
+
+
+def replace_paths_in_value(value, old: str, new: str):
+    if isinstance(value, str):
+        return value.replace(old, new)
+    if isinstance(value, list):
+        return [replace_paths_in_value(item, old, new) for item in value]
+    if isinstance(value, dict):
+        return {k: replace_paths_in_value(v, old, new) for k, v in value.items()}
+    return value
+
+
+def compare_with_unified_diff(expected: str, actual: str, path: str) -> None:
+    if expected == actual:
+        return
+    diff = difflib.unified_diff(
+        expected.splitlines(keepends=True),
+        actual.splitlines(keepends=True),
+        fromfile=f"expected:{path}",
+        tofile=f"actual:{path}",
+        lineterm="",
+    )
+    print("".join(diff))
+    raise SystemExit(f"fixture mismatch: {path}")
+
+
+def compare_json(expected_obj, actual_obj, expected_repo_root: str, actual_repo_root: str, scenario: str, path: str) -> None:
+    for field in ("created_at", "executed_at", "plan_digest"):
+        expected_obj.pop(field, None)
+        actual_obj.pop(field, None)
+
+    expected_obj = replace_paths_in_value(expected_obj, expected_repo_root, expected_repo_root)
+    actual_obj = replace_paths_in_value(actual_obj, actual_repo_root, expected_repo_root)
+    expected_text = json.dumps(expected_obj, sort_keys=True, indent=2, ensure_ascii=False)
+    actual_text = json.dumps(actual_obj, sort_keys=True, indent=2, ensure_ascii=False)
+    compare_with_unified_diff(expected_text, actual_text, f"{scenario}/{path}")
+
+
+def run_scenario(repo_root: Path, sample_root: Path, scenario: str, base_ref: str, head_ref: str, commits: dict):
+    base = commits[base_ref]
+    head = commits[head_ref]
+
+    subprocess.run(
+        [
+            "cargo",
+            "proofrun",
+            "plan",
+            "--repo",
+            str(repo_root),
+            "--base",
+            base,
+            "--head",
+            head,
+            "--profile",
+            "ci",
+        ],
+        check=True,
+    )
+
+    subprocess.run(
+        [
+            "cargo",
+            "proofrun",
+            "run",
+            "--plan",
+            str(repo_root / ".proofrun/plan.json"),
+            "--dry-run",
+        ],
+        check=True,
+    )
+
+    sample_dir = sample_root / scenario
+    expected_plan = json.loads((sample_dir / "plan.json").read_text())
+    expected_receipt = json.loads((sample_dir / "receipt.json").read_text())
+    actual_plan = json.loads((repo_root / ".proofrun/plan.json").read_text())
+    actual_receipt = json.loads((repo_root / ".proofrun/receipt.json").read_text())
+
+    expected_repo_root = expected_plan.get("repo_root", "")
+    actual_repo_root = actual_plan.get("repo_root", "")
+
+    # plan.md (ignore digest line)
+    expected_plan_md = normalize_plan_markdown((sample_dir / "plan.md").read_text())
+    actual_plan_md = normalize_plan_markdown((repo_root / ".proofrun/plan.md").read_text())
+    expected_plan_md = normalize_text(expected_plan_md, expected_repo_root, expected_repo_root)
+    actual_plan_md = normalize_text(actual_plan_md, actual_repo_root, expected_repo_root)
+    compare_with_unified_diff(expected_plan_md, actual_plan_md, f"{scenario}/plan.md")
+
+    # Structured artifacts
+    compare_json(
+        expected_plan,
+        actual_plan,
+        expected_repo_root,
+        actual_repo_root,
+        scenario,
+        "plan.json",
+    )
+    compare_json(
+        expected_receipt,
+        actual_receipt,
+        expected_repo_root,
+        actual_repo_root,
+        scenario,
+        "receipt.json",
+    )
+
+    # Command artifacts
+    for rel in ("commands.sh", "github-actions.yml", "diff.patch"):
+        expected_text = (sample_dir / rel).read_text()
+        actual_text = (repo_root / ".proofrun" / rel).read_text()
+        expected_text = normalize_text(expected_text, expected_repo_root, expected_repo_root)
+        actual_text = normalize_text(actual_text, actual_repo_root, expected_repo_root)
+        compare_with_unified_diff(expected_text, actual_text, f"{scenario}/{rel}")
+
+
+workspace_root = Path(".")
+repo_root = workspace_root / "fixtures/demo-workspace/repo"
+sample_root = workspace_root / "fixtures/demo-workspace/sample"
+commits_path = sample_root / "commits.json"
+commits = json.loads(commits_path.read_text())
+
+scenarios = [
+    ("core-change", "initial", "core_change"),
+    ("docs-change", "core_change", "docs_change"),
+    ("empty-diff", "initial", "initial"),
+    ("deletion-only", "core_change", "deletion_only"),
+    ("rename", "core_change", "rename_core"),
+]
+
+for scenario, base_ref, head_ref in scenarios:
+    if base_ref not in commits or head_ref not in commits:
+        raise SystemExit(f"missing commit keys for {scenario}: {base_ref}/{head_ref}")
+    run_scenario(repo_root, sample_root, scenario, base_ref, head_ref, commits)
+
+print("fixture golden checks passed")
+PY

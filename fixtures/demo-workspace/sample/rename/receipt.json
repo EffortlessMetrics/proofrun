@@ -1,0 +1,65 @@
+{
+  "executed_at": "2026-04-06T00:16:18Z",
+  "plan_digest": "31c7b6d43b09925620c3da9e43546d44759ec01ef5706f39b9bc25c50c810a18",
+  "status": "dry-run",
+  "steps": [
+    {
+      "argv": [
+        "cargo",
+        "mutants",
+        "--in-diff",
+        "H:/Code/Rust/proofrun/fixtures/demo-workspace/repo/.proofrun/diff.patch",
+        "--package",
+        "core"
+      ],
+      "duration_ms": 0,
+      "exit_code": 0,
+      "id": "mutation.diff[pkg=core]",
+      "stderr_path": ".proofrun/logs/01-mutation.diff[pkg=core].stderr.log",
+      "stdout_path": ".proofrun/logs/01-mutation.diff[pkg=core].stdout.log"
+    },
+    {
+      "argv": [
+        "cargo",
+        "nextest",
+        "run",
+        "--profile",
+        "ci",
+        "-E",
+        "package(core)"
+      ],
+      "duration_ms": 0,
+      "exit_code": 0,
+      "id": "tests.pkg[pkg=core]",
+      "stderr_path": ".proofrun/logs/02-tests.pkg[pkg=core].stderr.log",
+      "stdout_path": ".proofrun/logs/02-tests.pkg[pkg=core].stdout.log"
+    },
+    {
+      "argv": [
+        "cargo",
+        "doc",
+        "--workspace",
+        "--no-deps"
+      ],
+      "duration_ms": 0,
+      "exit_code": 0,
+      "id": "workspace.docs",
+      "stderr_path": ".proofrun/logs/03-workspace.docs.stderr.log",
+      "stdout_path": ".proofrun/logs/03-workspace.docs.stdout.log"
+    },
+    {
+      "argv": [
+        "cargo",
+        "test",
+        "--workspace",
+        "--quiet"
+      ],
+      "duration_ms": 0,
+      "exit_code": 0,
+      "id": "workspace.smoke",
+      "stderr_path": ".proofrun/logs/04-workspace.smoke.stderr.log",
+      "stdout_path": ".proofrun/logs/04-workspace.smoke.stdout.log"
+    }
+  ],
+  "version": "0.1.0-ref"
+}

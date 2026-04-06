@@ -118,17 +118,13 @@ enum EmitKind {
 fn load_plan(plan_path: &Utf8PathBuf) -> Result<proofrun::Plan> {
     let raw = std::fs::read_to_string(plan_path)
         .with_context(|| format!("failed to read plan file {plan_path}"))?;
-    let plan: proofrun::Plan = serde_json::from_str(&raw)
-        .with_context(|| format!("failed to parse plan file {plan_path}"))?;
-    Ok(plan)
+    proofrun::parse_plan_from_json(&raw, plan_path)
 }
 
 fn load_receipt(receipt_path: &Utf8PathBuf) -> Result<proofrun::Receipt> {
     let raw = std::fs::read_to_string(receipt_path)
         .with_context(|| format!("failed to read receipt file {receipt_path}"))?;
-    let receipt: proofrun::Receipt = serde_json::from_str(&raw)
-        .with_context(|| format!("failed to parse receipt file {receipt_path}"))?;
-    Ok(receipt)
+    proofrun::parse_receipt_from_json(&raw, receipt_path)
 }
 
 fn print_json_sorted(value: &impl serde::Serialize) -> Result<()> {

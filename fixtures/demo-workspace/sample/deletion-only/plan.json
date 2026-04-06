@@ -1,0 +1,229 @@
+{
+  "artifacts": {
+    "commands_shell": ".proofrun/commands.sh",
+    "diff_patch": ".proofrun/diff.patch",
+    "github_actions": ".proofrun/github-actions.yml",
+    "output_dir": ".proofrun",
+    "plan_json": ".proofrun/plan.json",
+    "plan_markdown": ".proofrun/plan.md"
+  },
+  "base": "ae21fea001cb9fc82101f7368ec5cfb4a6fa46eb",
+  "changed_paths": [
+    {
+      "owner": "app",
+      "path": "crates/app/src/main.rs",
+      "status": "D"
+    },
+    {
+      "owner": "core",
+      "path": "crates/core/src/core_renamed.rs",
+      "status": "R"
+    },
+    {
+      "owner": null,
+      "path": "docs/guide.md",
+      "status": "M"
+    }
+  ],
+  "config_digest": "859f3ea0c010418cabf3ca3b1c07cb6bbaa57398515df52a54b017d2a3bbc8a1",
+  "created_at": "2026-04-06T00:16:17Z",
+  "diagnostics": [],
+  "head": "75883c2489a7eb2807c62e886076a459df88b45b",
+  "merge_base": "ae21fea001cb9fc82101f7368ec5cfb4a6fa46eb",
+  "obligations": [
+    {
+      "id": "pkg:app:mutation-diff",
+      "reasons": [
+        {
+          "path": "crates/app/src/main.rs",
+          "pattern": "crates/*/src/**/*.rs",
+          "rule": "rule:1",
+          "source": "rule"
+        }
+      ]
+    },
+    {
+      "id": "pkg:app:tests",
+      "reasons": [
+        {
+          "path": "crates/app/src/main.rs",
+          "pattern": "crates/*/src/**/*.rs",
+          "rule": "rule:1",
+          "source": "rule"
+        }
+      ]
+    },
+    {
+      "id": "pkg:core:mutation-diff",
+      "reasons": [
+        {
+          "path": "crates/core/src/core_renamed.rs",
+          "pattern": "crates/*/src/**/*.rs",
+          "rule": "rule:1",
+          "source": "rule"
+        }
+      ]
+    },
+    {
+      "id": "pkg:core:tests",
+      "reasons": [
+        {
+          "path": "crates/core/src/core_renamed.rs",
+          "pattern": "crates/*/src/**/*.rs",
+          "rule": "rule:1",
+          "source": "rule"
+        }
+      ]
+    },
+    {
+      "id": "workspace:docs",
+      "reasons": [
+        {
+          "path": "docs/guide.md",
+          "pattern": "docs/**",
+          "rule": "rule:3",
+          "source": "rule"
+        }
+      ]
+    },
+    {
+      "id": "workspace:smoke",
+      "reasons": [
+        {
+          "path": null,
+          "pattern": null,
+          "rule": "ci",
+          "source": "profile"
+        }
+      ]
+    }
+  ],
+  "omitted_surfaces": [
+    {
+      "id": "workspace.all-tests",
+      "reason": "not selected by optimal weighted cover"
+    }
+  ],
+  "plan_digest": "f8b1bb07f55eab18ebd6f0964e92c12a8adb1232f79e46e4243a67474cefcecf",
+  "profile": "ci",
+  "repo_root": "H:\\Code\\Rust\\proofrun\\fixtures\\demo-workspace\\repo",
+  "selected_surfaces": [
+    {
+      "cost": 13.0,
+      "covers": [
+        "pkg:app:mutation-diff"
+      ],
+      "id": "mutation.diff[pkg=app]",
+      "run": [
+        "cargo",
+        "mutants",
+        "--in-diff",
+        "H:/Code/Rust/proofrun/fixtures/demo-workspace/repo/.proofrun/diff.patch",
+        "--package",
+        "app"
+      ],
+      "template": "mutation.diff"
+    },
+    {
+      "cost": 13.0,
+      "covers": [
+        "pkg:core:mutation-diff"
+      ],
+      "id": "mutation.diff[pkg=core]",
+      "run": [
+        "cargo",
+        "mutants",
+        "--in-diff",
+        "H:/Code/Rust/proofrun/fixtures/demo-workspace/repo/.proofrun/diff.patch",
+        "--package",
+        "core"
+      ],
+      "template": "mutation.diff"
+    },
+    {
+      "cost": 3.0,
+      "covers": [
+        "pkg:app:tests"
+      ],
+      "id": "tests.pkg[pkg=app]",
+      "run": [
+        "cargo",
+        "nextest",
+        "run",
+        "--profile",
+        "ci",
+        "-E",
+        "package(app)"
+      ],
+      "template": "tests.pkg"
+    },
+    {
+      "cost": 3.0,
+      "covers": [
+        "pkg:core:tests"
+      ],
+      "id": "tests.pkg[pkg=core]",
+      "run": [
+        "cargo",
+        "nextest",
+        "run",
+        "--profile",
+        "ci",
+        "-E",
+        "package(core)"
+      ],
+      "template": "tests.pkg"
+    },
+    {
+      "cost": 4.0,
+      "covers": [
+        "workspace:docs"
+      ],
+      "id": "workspace.docs",
+      "run": [
+        "cargo",
+        "doc",
+        "--workspace",
+        "--no-deps"
+      ],
+      "template": "workspace.docs"
+    },
+    {
+      "cost": 2.0,
+      "covers": [
+        "workspace:smoke"
+      ],
+      "id": "workspace.smoke",
+      "run": [
+        "cargo",
+        "test",
+        "--workspace",
+        "--quiet"
+      ],
+      "template": "workspace.smoke"
+    }
+  ],
+  "version": "0.1.0-ref",
+  "workspace": {
+    "packages": [
+      {
+        "dependencies": [
+          "core"
+        ],
+        "dir": "crates/app",
+        "manifest": "crates/app/Cargo.toml",
+        "name": "app",
+        "reverse_dependencies": []
+      },
+      {
+        "dependencies": [],
+        "dir": "crates/core",
+        "manifest": "crates/core/Cargo.toml",
+        "name": "core",
+        "reverse_dependencies": [
+          "app"
+        ]
+      }
+    ]
+  }
+}
