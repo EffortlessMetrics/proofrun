@@ -1,19 +1,41 @@
 # RELEASE
 
-This bundle is a scaffold plus runnable reference implementation.
+This file tracks the publication path for the Rust CLI.
 
-## Before publishing
+## Publication order
 
-- choose a final license
-- install a Rust toolchain
-- port the reference implementation into `crates/proofrun`
-- wire the Cargo subcommand in `crates/cargo-proofrun`
-- replace placeholder CI steps with real Rust builds
+1. Publish the core library crate used by the CLI:
+   - `crates/proofrun` (`proofrun`)
+2. Publish the public CLI crate:
+   - `crates/cargo-proofrun` (`cargo-proofrun`)
+3. Keep remaining internal crates non-publishable:
+   - `xtask`
 
-## Draft release process
+## Release preflight (run locally)
 
-1. run the Python reference tests
-2. regenerate fixture artifacts
-3. review schemas and docs
-4. archive the repo
-5. tag the version
+1. Update versioning and changelog.
+2. Regenerate fixtures if behavior has changed.
+3. Validate release packaging:
+
+```bash
+cargo publish --dry-run -p proofrun
+cargo package --list -p proofrun
+cargo publish --dry-run -p cargo-proofrun
+cargo package --list -p cargo-proofrun
+```
+
+4. Verify golden/reference behavior for the release slice.
+5. Tag a signed alpha release:
+
+```bash
+git tag -a v0.1.0-alpha.1 -m "release: cargo-proofrun 0.1.0-alpha.1"
+git push origin v0.1.0-alpha.1
+```
+
+6. Trigger GitHub `release` workflow (or push the tag to publish release binaries).
+
+## Post-release
+
+1. Publish crates to crates.io (`proofrun` then `cargo-proofrun`).
+2. Update `README` for the new release boundary.
+3. Cut the next profile/alpha plan.

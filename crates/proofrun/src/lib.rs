@@ -107,8 +107,8 @@ pub fn check_budget_gates(
 
 fn validate_json(path: &Utf8Path, value: &serde_json::Value, schema_file: &str) -> Result<()> {
     let schema_json = match schema_file {
-        "schema/plan.schema.json" => include_str!("../../../schema/plan.schema.json"),
-        "schema/receipt.schema.json" => include_str!("../../../schema/receipt.schema.json"),
+        "schema/plan.schema.json" => include_str!("../schema/plan.schema.json"),
+        "schema/receipt.schema.json" => include_str!("../schema/receipt.schema.json"),
         _ => unreachable!("unsupported schema file: {schema_file}"),
     };
 

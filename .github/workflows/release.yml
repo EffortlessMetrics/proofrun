@@ -1,0 +1,80 @@
+name: release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build ${{ matrix.asset }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            asset: linux-x86_64
+          - os: macos-latest
+            asset: macos-x86_64
+          - os: windows-latest
+            asset: windows-x86_64
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Build release binary
+        run: cargo build --release -p cargo-proofrun
+
+      - name: Package artifact
+        shell: bash
+        run: |
+          mkdir -p dist
+          VERSION="${GITHUB_REF_NAME}"
+
+          if [[ "${{ matrix.os }}" != "windows-latest" ]]; then
+            tar -czf "dist/cargo-proofrun-${VERSION}-${{ matrix.asset }}.tar.gz" -C target/release cargo-proofrun
+          fi
+
+      - name: Package artifact (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          New-Item -Type Directory -Force dist | Out-Null
+          $version = "${env:GITHUB_REF_NAME}"
+          Compress-Archive -Path "target/release/cargo-proofrun.exe" -DestinationPath "dist/cargo-proofrun-$version-${{ matrix.asset }}.zip"
+
+      - name: Upload asset
+        uses: actions/upload-artifact@v4
+        with:
+          name: cargo-proofrun-${{ matrix.asset }}
+          path: dist/*
+
+  release:
+    name: Create release
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          pattern: cargo-proofrun-*
+          merge-multiple: true
+
+      - name: Publish release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*
+
+      - name: Publish crate
+        if: secrets.CARGO_REGISTRY_TOKEN != ''
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+        run: |
+          cargo publish --token "$CARGO_REGISTRY_TOKEN" -p proofrun
+          cargo publish --token "$CARGO_REGISTRY_TOKEN" -p cargo-proofrun

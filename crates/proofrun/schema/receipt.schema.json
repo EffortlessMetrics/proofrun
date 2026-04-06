@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://proofrun.dev/schema/receipt.schema.json",
+  "title": "proofrun receipt",
+  "type": "object",
+  "required": ["version", "executed_at", "plan_digest", "status", "steps"],
+  "properties": {
+    "version": { "type": "string" },
+    "executed_at": { "type": "string" },
+    "plan_digest": { "type": "string" },
+    "status": { "type": "string", "enum": ["passed", "failed", "dry-run"] },
+    "steps": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "argv", "exit_code"],
+        "properties": {
+          "id": { "type": "string" },
+          "argv": { "type": "array", "items": { "type": "string" } },
+          "exit_code": { "type": "integer" },
+          "duration_ms": { "type": "integer" },
+          "stdout_path": { "type": ["string", "null"] },
+          "stderr_path": { "type": ["string", "null"] }
+        },
+        "additionalProperties": true
+      }
+    }
+  },
+  "additionalProperties": true
+}

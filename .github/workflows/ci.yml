@@ -66,6 +66,15 @@ jobs:
       - name: Rustfmt
         run: cargo fmt --all -- --check
 
+      - name: Publication readiness checks
+        run: |
+          cargo publish --dry-run -p proofrun
+          cargo package --list -p proofrun
+          cargo package --list -p cargo-proofrun
+          if ! cargo publish --dry-run -p cargo-proofrun; then
+            echo "::warning::cargo-proofrun dry-run is blocked until proofrun is available on crates.io."
+          fi
+
       - name: Fixture golden diff checks
         run: |
           python3 - <<'PY'

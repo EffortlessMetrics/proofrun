@@ -42,6 +42,14 @@ cargo proofrun explain --plan .proofrun/plan.json
 cargo proofrun run --plan .proofrun/plan.json
 ```
 
+## 60-second install + try
+
+```bash
+cargo install cargo-proofrun
+cargo proofrun --help
+cargo proofrun plan --repo fixtures/demo-workspace/repo --base initial --head core_change --profile ci
+```
+
 ## What the tool does
 
 A diff does not select tests directly. A diff creates **proof obligations**. `proofrun` selects the smallest set of **surfaces** that discharge those obligations.
