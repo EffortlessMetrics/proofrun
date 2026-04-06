@@ -9,6 +9,7 @@
 - Added release guardrails: `proofrun` dry-run/package checks and explicit CLI publish ordering (`proofrun` then `cargo-proofrun`).
 - Added crates.io propagation handling so CI and release workflows only dry-run or publish `cargo-proofrun` once the matching `proofrun` version is visible.
 - Added GitHub release workflow that publishes platform binaries.
+- Aligned README and roadmap language with the current Rust CLI status and unreleased public alpha state.
 
 ## 0.1.0-alpha.1
 
