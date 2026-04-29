@@ -1,0 +1,4 @@
+steps:
+  - name: Execute proof plan
+    run: |
+      cargo test --workspace --quiet

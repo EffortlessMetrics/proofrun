@@ -6,14 +6,17 @@
 - checked-in schemas
 - sample policy
 - fixture repo with recorded plans
-- target Rust crate layout
+- Rust planning core in `crates/proofrun`
+- Cargo subcommand in `crates/cargo-proofrun`
+- semantic-trust layer: golden diffing, schema validation, conformance expansion
+- publish rail: package-safe schema embedding, publish metadata, release workflow, crates.io propagation gate
 - repo operating docs
 
 ## Next
 
-1. port the planning core from Python into `crates/proofrun`
-2. wire `cargo-proofrun` as the primary CLI
-3. switch workspace discovery to `cargo metadata --format-version 1`
-4. add optional nextest inventory integration
-5. add richer diagnostics and doctor checks
-6. add scenario index generation
+1. merge the public-truth updates and verify the first public alpha release end-to-end
+2. add `--explain-solver` and stronger omitted-surface rationale
+3. add policy linting, dead-rule detection, and safer rule preview tooling
+4. add PR/check-run integration and standard operating modes
+5. add shadow-mode calibration against full CI
+6. improve blast-radius fidelity for API, feature, and build-script changes

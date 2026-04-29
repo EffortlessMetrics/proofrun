@@ -1,0 +1,73 @@
+{
+  "artifacts": {
+    "commands_shell": ".proofrun/commands.sh",
+    "diff_patch": ".proofrun/diff.patch",
+    "github_actions": ".proofrun/github-actions.yml",
+    "output_dir": ".proofrun",
+    "plan_json": ".proofrun/plan.json",
+    "plan_markdown": ".proofrun/plan.md"
+  },
+  "base": "8a98e3f3f44b8fcb4ae8f853911b4c5bb1d26717",
+  "changed_paths": [],
+  "config_digest": "859f3ea0c010418cabf3ca3b1c07cb6bbaa57398515df52a54b017d2a3bbc8a1",
+  "created_at": "2026-04-06T00:16:16Z",
+  "diagnostics": [],
+  "head": "8a98e3f3f44b8fcb4ae8f853911b4c5bb1d26717",
+  "merge_base": "8a98e3f3f44b8fcb4ae8f853911b4c5bb1d26717",
+  "obligations": [
+    {
+      "id": "workspace:smoke",
+      "reasons": [
+        {
+          "path": null,
+          "pattern": null,
+          "rule": "ci",
+          "source": "profile"
+        }
+      ]
+    }
+  ],
+  "omitted_surfaces": [],
+  "plan_digest": "871bbf5dc88f5afe6166185ef8ae198b431caa08da598dde70be926719b778d6",
+  "profile": "ci",
+  "repo_root": "H:\\Code\\Rust\\proofrun\\fixtures\\demo-workspace\\repo",
+  "selected_surfaces": [
+    {
+      "cost": 2.0,
+      "covers": [
+        "workspace:smoke"
+      ],
+      "id": "workspace.smoke",
+      "run": [
+        "cargo",
+        "test",
+        "--workspace",
+        "--quiet"
+      ],
+      "template": "workspace.smoke"
+    }
+  ],
+  "version": "0.1.0-ref",
+  "workspace": {
+    "packages": [
+      {
+        "dependencies": [
+          "core"
+        ],
+        "dir": "crates/app",
+        "manifest": "crates/app/Cargo.toml",
+        "name": "app",
+        "reverse_dependencies": []
+      },
+      {
+        "dependencies": [],
+        "dir": "crates/core",
+        "manifest": "crates/core/Cargo.toml",
+        "name": "core",
+        "reverse_dependencies": [
+          "app"
+        ]
+      }
+    ]
+  }
+}

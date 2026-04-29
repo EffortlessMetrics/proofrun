@@ -1,6 +1,10 @@
+use anyhow::Context;
 use crate::emit::shell_join;
-use crate::model::{ObligationReason, Plan};
+use crate::model::{ObligationReason, Plan, SelectedSurface};
+use crate::planner::CandidateSurface;
+use camino::{Utf8Path, Utf8PathBuf};
 use serde::Serialize;
+use std::collections::{BTreeMap, BTreeSet};
 
 /// Format an f64 cost to match Python's JSON float formatting.
 /// Python's `json.dumps` always includes a `.0` for whole-number floats.
@@ -119,6 +123,21 @@ pub struct SurfaceExplanation {
     pub covers: Option<Vec<String>>,
     pub run: Option<Vec<String>>,
     pub omission_reason: Option<String>,
+    pub required_obligations: Option<Vec<String>>,
+    pub selected_covering_surfaces: Option<Vec<String>>,
+    pub selected_covering_cost: Option<f64>,
+    pub cost_delta_vs_selected_covering: Option<f64>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct SolverExplanation {
+    pub profile: String,
+    pub obligation_count: usize,
+    pub candidate_count: usize,
+    pub selected_total_cost: f64,
+    pub fallback_obligations: Vec<String>,
+    pub selected: Vec<SurfaceExplanation>,
+    pub omitted: Vec<SurfaceExplanation>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -150,6 +169,172 @@ pub struct FallbackObligation {
     pub obligation_id: String,
     pub source: String,
     pub surfaces: Vec<String>,
+}
+
+fn explainable_candidates(plan: &Plan) -> anyhow::Result<Vec<CandidateSurface>> {
+    let repo_root = Utf8Path::new(&plan.repo_root);
+    let config = crate::load_config(repo_root)?;
+    let config_value =
+        serde_json::to_value(&config).context("failed to serialize current config for explain")?;
+    let current_config_digest = crate::sha256_hex(&crate::canonical_json(&config_value));
+
+    if current_config_digest != plan.config_digest {
+        anyhow::bail!(
+            "current repo config does not match plan config_digest; regenerate the plan or explain it from the matching repo state"
+        );
+    }
+
+    let obligations: Vec<String> = plan.obligations.iter().map(|o| o.id.clone()).collect();
+    let output_dir = Utf8PathBuf::from(format!(
+        "{}/{}",
+        repo_root.as_str().replace('\\', "/"),
+        config.defaults.output_dir
+    ));
+    let candidates = crate::build_candidates(&config, &obligations, &plan.profile, &output_dir);
+
+    let plan_candidate_ids: BTreeSet<String> = plan
+        .selected_surfaces
+        .iter()
+        .map(|surface| surface.id.clone())
+        .chain(plan.omitted_surfaces.iter().map(|surface| surface.id.clone()))
+        .collect();
+    let rebuilt_candidate_ids: BTreeSet<String> =
+        candidates.iter().map(|candidate| candidate.id.clone()).collect();
+
+    if rebuilt_candidate_ids != plan_candidate_ids {
+        anyhow::bail!(
+            "current solver candidate set does not match the saved plan; regenerate the plan with the current binary before using --solver"
+        );
+    }
+
+    Ok(candidates)
+}
+
+fn required_obligations(plan: &Plan, surface: &SelectedSurface) -> Vec<String> {
+    surface
+        .covers
+        .iter()
+        .filter(|obligation| {
+            !plan.selected_surfaces.iter().any(|other| {
+                other.id != surface.id && other.covers.iter().any(|cover| cover == *obligation)
+            })
+        })
+        .cloned()
+        .collect()
+}
+
+fn best_selected_cover(
+    selected_surfaces: &[SelectedSurface],
+    target_obligations: &[String],
+) -> Option<(Vec<String>, f64)> {
+    let target: BTreeSet<String> = target_obligations.iter().cloned().collect();
+    let mut best: Option<(f64, usize, Vec<String>)> = None;
+
+    fn recurse(
+        idx: usize,
+        selected_surfaces: &[SelectedSurface],
+        remaining: &BTreeSet<String>,
+        chosen: &mut Vec<String>,
+        cost: f64,
+        best: &mut Option<(f64, usize, Vec<String>)>,
+    ) {
+        if remaining.is_empty() {
+            let mut signature = chosen.clone();
+            signature.sort();
+            let score = (cost, signature.len(), signature);
+            if best.is_none() || score < *best.as_ref().unwrap() {
+                *best = Some(score);
+            }
+            return;
+        }
+
+        if idx >= selected_surfaces.len() {
+            return;
+        }
+
+        if let Some(current_best) = best.as_ref() {
+            if (cost, chosen.len()) >= (current_best.0, current_best.1) {
+                return;
+            }
+        }
+
+        recurse(idx + 1, selected_surfaces, remaining, chosen, cost, best);
+
+        let surface = &selected_surfaces[idx];
+        let remaining_after_pick: BTreeSet<String> = remaining
+            .difference(&surface.covers.iter().cloned().collect())
+            .cloned()
+            .collect();
+        chosen.push(surface.id.clone());
+        recurse(
+            idx + 1,
+            selected_surfaces,
+            &remaining_after_pick,
+            chosen,
+            cost + surface.cost,
+            best,
+        );
+        chosen.pop();
+    }
+
+    recurse(
+        0,
+        selected_surfaces,
+        &target,
+        &mut Vec::new(),
+        0.0,
+        &mut best,
+    );
+
+    best.map(|(cost, _count, ids)| (ids, cost))
+}
+
+fn explain_selected_surface(plan: &Plan, surface: &SelectedSurface) -> SurfaceExplanation {
+    SurfaceExplanation {
+        surface_id: surface.id.clone(),
+        status: "selected".to_string(),
+        template: Some(surface.template.clone()),
+        cost: Some(surface.cost),
+        covers: Some(surface.covers.clone()),
+        run: Some(surface.run.clone()),
+        omission_reason: None,
+        required_obligations: Some(required_obligations(plan, surface)),
+        selected_covering_surfaces: None,
+        selected_covering_cost: None,
+        cost_delta_vs_selected_covering: None,
+    }
+}
+
+fn explain_omitted_surface(
+    plan: &Plan,
+    candidate: &CandidateSurface,
+    omission_reason: String,
+) -> SurfaceExplanation {
+    let selected_cover = best_selected_cover(&plan.selected_surfaces, &candidate.covers);
+    let (selected_covering_surfaces, selected_covering_cost, cost_delta_vs_selected_covering) =
+        if let Some((surface_ids, total_cost)) = selected_cover {
+            (
+                Some(surface_ids),
+                Some(total_cost),
+                Some(candidate.cost - total_cost),
+            )
+        } else {
+            (None, None, None)
+        };
+
+    SurfaceExplanation {
+        surface_id: candidate.id.clone(),
+        status: "omitted".to_string(),
+        template: Some(candidate.template.clone()),
+        cost: Some(candidate.cost),
+        covers: Some(candidate.covers.clone()),
+        run: Some(candidate.run.clone()),
+        omission_reason: Some(omission_reason),
+        required_obligations: None,
+        selected_covering_surfaces,
+        selected_covering_cost,
+        cost_delta_vs_selected_covering,
+    }
 }
 
 /// Query a path's traceability through the plan: which rules matched,
@@ -247,10 +432,23 @@ pub fn query_obligation(plan: &Plan, obligation_id: &str) -> anyhow::Result<Obli
         .map(|s| s.id.clone())
         .collect();
 
-    // OmittedSurface only has id and reason — no covers field.
-    // We cannot determine which omitted surfaces would have covered this obligation
-    // from the Plan data alone, so we return an empty list.
-    let omitted_surfaces: Vec<String> = vec![];
+    let omitted_surfaces: Vec<String> = if let Ok(candidates) = explainable_candidates(plan) {
+        let selected_ids: BTreeSet<&str> = plan
+            .selected_surfaces
+            .iter()
+            .map(|surface| surface.id.as_str())
+            .collect();
+        candidates
+            .iter()
+            .filter(|candidate| {
+                !selected_ids.contains(candidate.id.as_str())
+                    && candidate.covers.iter().any(|cover| cover == obligation_id)
+            })
+            .map(|candidate| candidate.id.clone())
+            .collect()
+    } else {
+        Vec::new()
+    };
 
     Ok(ObligationExplanation {
         obligation_id: obligation_id.to_string(),
@@ -266,19 +464,21 @@ pub fn query_obligation(plan: &Plan, obligation_id: &str) -> anyhow::Result<Obli
 pub fn query_surface(plan: &Plan, surface_id: &str) -> anyhow::Result<SurfaceExplanation> {
     // Check selected surfaces first.
     if let Some(surface) = plan.selected_surfaces.iter().find(|s| s.id == surface_id) {
-        return Ok(SurfaceExplanation {
-            surface_id: surface_id.to_string(),
-            status: "selected".to_string(),
-            template: Some(surface.template.clone()),
-            cost: Some(surface.cost),
-            covers: Some(surface.covers.clone()),
-            run: Some(surface.run.clone()),
-            omission_reason: None,
-        });
+        return Ok(explain_selected_surface(plan, surface));
     }
 
     // Check omitted surfaces.
     if let Some(omitted) = plan.omitted_surfaces.iter().find(|s| s.id == surface_id) {
+        if let Ok(candidates) = explainable_candidates(plan) {
+            if let Some(candidate) = candidates.iter().find(|candidate| candidate.id == surface_id) {
+                return Ok(explain_omitted_surface(
+                    plan,
+                    candidate,
+                    omitted.reason.clone(),
+                ));
+            }
+        }
+
         return Ok(SurfaceExplanation {
             surface_id: surface_id.to_string(),
             status: "omitted".to_string(),
@@ -287,11 +487,88 @@ pub fn query_surface(plan: &Plan, surface_id: &str) -> anyhow::Result<SurfaceExp
             covers: None,
             run: None,
             omission_reason: Some(omitted.reason.clone()),
+            required_obligations: None,
+            selected_covering_surfaces: None,
+            selected_covering_cost: None,
+            cost_delta_vs_selected_covering: None,
         });
     }
 
     Err(anyhow::anyhow!(
         "surface id '{}' not found in plan (neither selected nor omitted)",
+        surface_id
+    ))
+}
+
+pub fn explain_solver(plan: &Plan) -> anyhow::Result<SolverExplanation> {
+    let candidates = explainable_candidates(plan)?;
+    let omitted_reasons: BTreeMap<&str, &str> = plan
+        .omitted_surfaces
+        .iter()
+        .map(|surface| (surface.id.as_str(), surface.reason.as_str()))
+        .collect();
+    let selected_ids: BTreeSet<&str> = plan
+        .selected_surfaces
+        .iter()
+        .map(|surface| surface.id.as_str())
+        .collect();
+
+    let omitted: Vec<SurfaceExplanation> = candidates
+        .iter()
+        .filter(|candidate| !selected_ids.contains(candidate.id.as_str()))
+        .map(|candidate| {
+            explain_omitted_surface(
+                plan,
+                candidate,
+                omitted_reasons
+                    .get(candidate.id.as_str())
+                    .copied()
+                    .unwrap_or("not selected by optimal weighted cover")
+                    .to_string(),
+            )
+        })
+        .collect();
+
+    let fallback_obligations: Vec<String> = plan
+        .obligations
+        .iter()
+        .filter(|obligation| {
+            obligation
+                .reasons
+                .iter()
+                .any(|reason| reason.source == "unknown-fallback" || reason.source == "empty-range-fallback")
+        })
+        .map(|obligation| obligation.id.clone())
+        .collect();
+
+    Ok(SolverExplanation {
+        profile: plan.profile.clone(),
+        obligation_count: plan.obligations.len(),
+        candidate_count: candidates.len(),
+        selected_total_cost: plan.selected_surfaces.iter().map(|surface| surface.cost).sum(),
+        fallback_obligations,
+        selected: plan
+            .selected_surfaces
+            .iter()
+            .map(|surface| explain_selected_surface(plan, surface))
+            .collect(),
+        omitted,
+    })
+}
+
+pub fn query_solver_surface(plan: &Plan, surface_id: &str) -> anyhow::Result<SurfaceExplanation> {
+    let solver = explain_solver(plan)?;
+
+    if let Some(surface) = solver.selected.iter().find(|surface| surface.surface_id == surface_id) {
+        return Ok(surface.clone());
+    }
+
+    if let Some(surface) = solver.omitted.iter().find(|surface| surface.surface_id == surface_id) {
+        return Ok(surface.clone());
+    }
+
+    Err(anyhow::anyhow!(
+        "surface id '{}' not found in solver candidate set",
         surface_id
     ))
 }
@@ -551,6 +828,17 @@ mod tests {
         }
     }
 
+    fn make_solver_explain_plan() -> Plan {
+        let mut plan = make_core_change_plan();
+        let repo_root = Utf8Path::new(".");
+        let config = crate::load_config(repo_root).expect("repo config should load");
+        let config_value =
+            serde_json::to_value(&config).expect("repo config should serialize to json");
+        plan.repo_root = ".".to_string();
+        plan.config_digest = crate::sha256_hex(&crate::canonical_json(&config_value));
+        plan
+    }
+
     #[test]
     fn test_core_change_plan_markdown_matches_fixture() {
         let plan = make_core_change_plan();
@@ -796,6 +1084,10 @@ mod tests {
         );
         assert!(result.run.is_some());
         assert!(result.omission_reason.is_none());
+        assert_eq!(
+            result.required_obligations.as_deref(),
+            Some(vec!["pkg:core:tests".to_string()].as_slice())
+        );
     }
 
     #[test]
@@ -813,6 +1105,60 @@ mod tests {
         assert!(result.cost.is_none());
         assert!(result.covers.is_none());
         assert!(result.run.is_none());
+        assert!(result.selected_covering_surfaces.is_none());
+        assert!(result.selected_covering_cost.is_none());
+    }
+
+    #[test]
+    fn test_query_solver_surface_omitted_returns_cost_context() {
+        let plan = make_solver_explain_plan();
+        let result = query_solver_surface(&plan, "workspace.all-tests").unwrap();
+
+        assert_eq!(result.surface_id, "workspace.all-tests");
+        assert_eq!(result.status, "omitted");
+        assert_eq!(result.template.as_deref(), Some("workspace.all-tests"));
+        assert_eq!(result.cost, Some(10.0));
+        assert_eq!(
+            result.covers.as_deref(),
+            Some(vec!["pkg:core:tests".to_string()].as_slice())
+        );
+        assert_eq!(
+            result.selected_covering_surfaces.as_deref(),
+            Some(vec!["tests.pkg[pkg=core]".to_string()].as_slice())
+        );
+        assert_eq!(result.selected_covering_cost, Some(3.0));
+        assert_eq!(result.cost_delta_vs_selected_covering, Some(7.0));
+    }
+
+    #[test]
+    fn test_explain_solver_returns_selected_and_omitted_surfaces() {
+        let plan = make_solver_explain_plan();
+        let result = explain_solver(&plan).unwrap();
+
+        assert_eq!(result.profile, "ci");
+        assert_eq!(result.obligation_count, 3);
+        assert_eq!(result.candidate_count, 4);
+        assert_eq!(result.selected_total_cost, 18.0);
+        assert!(result.fallback_obligations.is_empty());
+        assert_eq!(result.selected.len(), 3);
+        assert_eq!(result.omitted.len(), 1);
+        assert_eq!(result.omitted[0].surface_id, "workspace.all-tests");
+    }
+
+    #[test]
+    fn test_explain_solver_fails_when_config_digest_drifts() {
+        let mut plan = make_solver_explain_plan();
+        plan.config_digest = "stale-config-digest".to_string();
+
+        let result = explain_solver(&plan);
+
+        assert!(result.is_err());
+        assert!(
+            result
+                .unwrap_err()
+                .to_string()
+                .contains("config_digest")
+        );
     }
 
     #[test]
@@ -1018,6 +1364,7 @@ mod tests {
     }
 
     /// Build a Plan from generated components.
+    #[allow(clippy::too_many_arguments)]
     fn make_arb_plan(
         base: String,
         head: String,
