@@ -1,5 +1,10 @@
 # proofrun
 
+[![CI](https://github.com/EffortlessMetrics/proofrun/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/EffortlessMetrics/proofrun/actions/workflows/ci.yml)
+[![Coverage](https://github.com/EffortlessMetrics/proofrun/actions/workflows/coverage.yml/badge.svg?branch=main)](https://github.com/EffortlessMetrics/proofrun/actions/workflows/coverage.yml)
+[![Codecov](https://codecov.io/gh/EffortlessMetrics/proofrun/branch/main/graph/badge.svg)](https://codecov.io/gh/EffortlessMetrics/proofrun)
+[![License](https://img.shields.io/badge/license-MIT%20OR%20Apache--2.0-blue.svg)](LICENSE-MIT)
+
 `proofrun` is a deterministic proof-plan compiler for Cargo workspaces.
 
 It takes a Git change range plus checked-in repo policy and turns that into the smallest credible verification plan for the change, the exact commands to run, and portable artifacts that can be reviewed by humans, CI, or agents.
